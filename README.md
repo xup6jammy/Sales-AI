@@ -30,9 +30,39 @@
 
 ## Vision
 
-The long-term goal of Sales AI is to **fully automate a company's sales function** &mdash; to let an AI work like a senior account manager who never clocks out: a copilot that reads customer email 24/7, understands the commercial context, evaluates the risk, proposes deals that are good for both sides, and only escalates the small set of edge cases that genuinely need a human's signature.
+The goal of Sales AI is to ship a **24/7 automated AI agent focused on the sales function** &mdash; a sales engine that never clocks out.
 
-Today we ship a context-first MVP with a hard manager-approval gate. Tomorrow that gate stays &mdash; but it triggers only on the genuinely sensitive cases (refunds, contract concessions, churn signals on VIP accounts), while the routine 80% runs autonomously, end to end. The roadmap below is the path from here to there.
+It doesn't lock you into one industry. **Plug in your existing customer database, meeting notes, contract archive, and CRM system**, and this agent will respond to customer email like a senior account manager around the clock &mdash; the daytime inquiry, the midnight refund request, the weekend renewal question, all caught in the first window. Manufacturing, finance, SaaS, cross-border e-commerce, B2B services &mdash; **wherever your customers write to you, this agent fits**.
+
+### What's coming next
+
+- **Phase 4 &mdash; Proactive outreach.** Not just inbound replies. Overdue proposals, contracts about to expire, accounts showing churn signals &mdash; the agent drafts the message, orders the priority, schedules the follow-up.
+- **Phase 5 &mdash; Cross-channel messaging.** Beyond email: LinkedIn, WhatsApp, LINE OA, Slack, the website chat widget, social-media DMs &mdash; same customer context, consistent voice across channels.
+- **Phase 6 &mdash; Autonomous closing.** Within manager-defined price bands, contract templates, and discount authorities, the agent runs the full loop &mdash; quote, negotiate, sign, log to CRM &mdash; without a human in the routine path.
+
+### What this is worth to a company
+
+- **Sales output stops being capped by headcount.** A 5,000-customer business that used to need 30 reps to keep coverage can run with 5 reps + AI and hit higher contact frequency.
+- **Speed becomes a weapon.** Industry average reply time on a sales inquiry is 4&ndash;12 hours; this agent replies in 30 seconds. **Speed of reply is conversion.**
+- **Institutional memory doesn't walk out the door.** When a rep leaves, they take customer history, talking points, and account context with them &mdash; every B2B company's biggest unforced loss. Sales AI lives in the database and shows up to work every day.
+- **Managers spend their time where it matters.** Refunds, contract concessions, VIP risk &mdash; those need a signature. The other 80% of routine email no longer eats their calendar.
+- **Auditable by default.** Regulated industries (banking, insurance, healthcare) cannot run a black-box agent. Every Sales AI step writes one audit line; the regulator, the board, and the external auditor can all read what happened and **why**.
+
+Today we ship a context-first MVP with a hard manager-approval gate. As phases progress, the gate narrows and the autonomous portion grows &mdash; but **the gate never disappears**. That is our safety promise.
+
+## Why Java
+
+Not because Java is trendy. Because this project's destination *is* Java's home turf.
+
+| Reason | How it shows up in this codebase |
+|---|---|
+| **B2B enterprise IT runs on Java** | Banks, insurers, manufacturing, ERP/CRM backends &mdash; ~90% Java/Spring. Embedding this agent next to existing services in the same process, sharing the same audit log, sharing the same DI container &mdash; far less friction than a Python sidecar. |
+| **JDK 21 + zero dependencies = 60-second reproduce** | No `pip install` resolving conflicts, no venv, no `node_modules` black hole. `git clone && javac && java` &mdash; three steps, done. Python and Node can't ship that cleanly. |
+| **Records + sealed types fit the domain model** | The 13 domain records are smaller than Python `@dataclass` equivalents and safer &mdash; compile-time null checks, exhaustive enum coverage, switch expressions forcing every case. |
+| **Auditability is regulatory, not nice-to-have** | A red line like refund/legal/contract gets compile-time guaranteed coverage in [`RiskRules.java`](src/main/java/com/example/salesai/risk/RiskRules.java). A missing `if/elif` branch in Python passes silently; Java's compiler refuses. |
+| **Complementary to the MCP ecosystem** | Most MCP servers are TS/Python &mdash; fine, the tool layer is language-agnostic. `SKILL.md` is the agent; the engine's language doesn't matter to the user. Choosing Java is a strategic bet on "easy to embed inside enterprise Java backends." |
+
+"AI agent in Java" is a scarce category on GitHub (~95% of public AI agent code is Python). For enterprise IT teams already on a Java stack, an agent that drops into their existing backend is a meaningful differentiator, not a liability.
 
 ## What makes this different
 
