@@ -1,0 +1,363 @@
+<p align="center">
+  <img src="docs/assets/hero.svg" alt="Customer Email Sales Advisor — context first, never auto-sends" />
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> &nbsp;·&nbsp;
+  <a href="README.zh-TW.md">繁體中文</a> &nbsp;·&nbsp;
+  <strong>日本語</strong> &nbsp;·&nbsp;
+  <a href="README.ko.md">한국어</a>
+</p>
+
+<p align="center">
+  <img alt="Java 21" src="https://img.shields.io/badge/Java-21-007396?style=flat-square&logo=openjdk&logoColor=white" />
+  <img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-22c55e?style=flat-square" />
+  <img alt="Status: MVP" src="https://img.shields.io/badge/Status-MVP-3b82f6?style=flat-square" />
+  <img alt="No dependencies" src="https://img.shields.io/badge/Dependencies-None-94a3b8?style=flat-square" />
+  <img alt="MCP-ready" src="https://img.shields.io/badge/MCP-ready-f59e0b?style=flat-square" />
+  <img alt="Claude Code skill" src="https://img.shields.io/badge/Claude%20Code-skill-8b5cf6?style=flat-square" />
+</p>
+
+<p align="center"><i>シニアアカウントマネージャーのように顧客のメールを読みこなす AI セールスコパイロット&mdash;&mdash;コンテキストが先、ドラフトは最後、送信ボタンには絶対に触れません。</i></p>
+
+---
+
+## TL;DR
+
+- B2B アカウントマネージャー向けの Java 21 製コパイロットです。まず顧客プロファイルと商談履歴を読み込み、関係するスレッドだけを精読し、インテントとトーンを分類し、明示的なポリシーに照らしてリスクを評価し、返信ドラフト 2 案とフォローアップアクションを出力します。
+- これはチャットボットではありません。設計上、コンテキストを起点としています。返金、法務的な表現、契約上の譲歩、例外的な値引き、解約に関する話題、VIP アカウントにおける離反シグナルは、いずれもマネージャー承認ゲートを強制し、**ドラフトをブロック**します。
+- 標準 JDK のみ、依存ゼロ、認証情報なし、ネットワーク不要で 60 秒以内に動かせます&mdash;&mdash; [60 秒で動かす](#60-秒で動かす) を参照してください。
+
+## 何が違うのか
+
+| | 何を提供するか | なぜ重要か |
+|---|---|---|
+| **Skill こそがエージェント** | ユーザーに向き合うエージェント本体は [`SKILL.md`](skills/customer-email-sales-advisor/SKILL.md) にあり、コードの中にはありません。Java MVP は単なるエンジンです。 | エンジンをフェーズごとに差し替え（Java CLI &rarr; Gmail MCP &rarr; CRM MCP）しても、Claude Code からの呼び方は変わりません。 |
+| **ハードな安全ゲート** | 返金 / 法務 / 契約 / 値引き / 離反シグナルは `REQUIRES_MANAGER_APPROVAL` を強制し、**ドラフトをブロック**します。 | 他のエージェントデモはモデルの「お行儀」に頼りますが、本プロジェクトはビルド成果物に SMTP コードを一切含みません。事故ですらメールを送れません。 |
+| **プロンプトファーストではなくコンテキストファースト** | 顧客プロファイル、契約、入金、チケット、AM のメモは、モデルがメールを見る**前に**ロードされます。 | シニア AM は頭の中でこれをやっています。LLM にはそれを書き下す必要があります。 |
+| **構造的に監査可能** | すべてのポート呼び出しは監査ログを 1 行ずつ書き、CLI はそれをレポート末尾に出力します。 | 判断が誤って見えるなら、レポートから入力に向かって遡れます。 |
+| **バイリンガル分類** | キーワードスコアラーが英語と繁体字中国語を同じパスで処理します。次の 2 言語の追加もすぐ差し込める設計です。 | 米国だけのフィクスチャではなく、アジア太平洋の B2B メールのために作られています。 |
+| **依存ゼロ、60 秒で再現可能** | 標準 JDK 21、Maven も Gradle も LLM キーもネットワークも不要。 | `git clone && javac && java` でデモが動きます。サプライチェーンも、サプライズもありません。 |
+
+## アーキテクチャ：Skill こそがエージェント
+
+> **Skill こそがエージェント。Java MVP はフェーズごとに差し替え可能なエンジン。**
+
+```mermaid
+flowchart TD
+    user["セールスユーザー"] -->|"&quot;この顧客の対応を手伝って&quot;"| cc["Claude Code"]
+    cc -->|読み込む| skill["<b>SKILL.md</b><br/>11 ステップのワークフロー<br/>安全ルール<br/>出力フォーマット"]
+    skill -->|オーケストレーション| tools(["ツール層<br/><i>フェーズごとに差し替え可</i>"])
+
+    tools ==> mvp["<b>MVP — このリポジトリ</b><br/>Java 21 CLI<br/>モックアダプター<br/>コンソール監査"]
+    tools -.->|Phase 2| email["Gmail MCP<br/>Outlook MCP"]
+    tools -.->|Phase 3| crm["CRM MCP<br/>Text2SQL"]
+    tools -.->|Phase 4| llm["Agents-Flex Skill<br/>Claude / Bedrock / ローカル LLM"]
+    tools -.->|Phase 5| approve["Slack 承認ボット"]
+    tools -.->|Phase 6| rag["RAG ナレッジベース"]
+```
+
+同じ `SKILL.md` がすべてのフェーズで動きます。今日はこのリポジトリの Java CLI を呼び、明日は Gmail/Outlook MCP と CRM MCP を呼びます。**11 ステップのワークフローと安全ルールはフェーズ間で変わりません**&mdash;&mdash;変わるのはポートの背後にある実装だけです。それこそが本プロジェクトの肝です。
+
+これがこのプロジェクトを単なるデモではなく学習素材として有用にしている点です。今日読んでいるエンジンは、いずれ MCP に支えられた本番デプロイがポート単位で置き換えていく、まさにそのエンジンです。完全な移行マップは [`docs/integration-plan.md`](docs/integration-plan.md) にあります。
+
+## 11 ステップのワークフロー
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as セールスユーザー
+    participant S as SKILL.md
+    participant CC as CustomerContextPort
+    participant ET as EmailThreadPort
+    participant CL as Classifiers
+    participant RP as RiskPolicyPort
+    participant RD as ReplyDraftPort
+    participant AP as ApprovalPort
+    participant AL as AuditLogPort
+
+    U->>S: 顧客 X の対応を手伝って
+    S->>CC: メールアドレスで検索
+    CC-->>S: プロファイル + 商談履歴
+    S->>ET: 関連スレッドをロード（同一顧客のみ）
+    ET-->>S: スレッド（n 件）
+    S->>CL: インテントとトーンを分類
+    CL-->>S: INTENT、TONE
+    S->>RP: evaluate(profile, thread, intent, tone)
+    RP-->>S: RiskAssessment + 理由
+    Note over S,RP: 返金 / 法務 / 契約 / 値引き / 離反<br/>=> REQUIRES_MANAGER_APPROVAL
+    S->>S: ReplyStrategy を導出
+    S->>RD: ドラフトを 2 案生成
+    RD-->>S: Safe/Formal + Warm/Relationship
+    S->>AP: isApproved?
+    AP-->>S: false（--approve なし）
+    S-->>U: ドラフトがブロックされたレポート + 監査サマリー
+    S->>AL: 上記の各ステップを監査
+```
+
+平易な言葉で言い直すと、図と同じ 11 ステップです。
+
+1. 顧客を識別する（CLI 引数の id または email から）。
+2. 顧客の商談プロファイルをロードする：ティア、契約状況、入金状況、最近の注文、未解決チケット、アカウントマネージャーのメモ。
+3. その顧客の関連メールスレッドをロードする。1 つのスレッドだけ、受信箱全体ではない。
+4. スレッドを事実ベースで要約する：誰がいつ何を言ったか、何を求めているか、何を既に約束しているか。
+5. ビジネスインテントを次のいずれかに分類する：`INQUIRY`、`QUOTATION`、`COMPLAINT`、`RENEWAL`、`PAYMENT_ISSUE`、`DELIVERY_DELAY`、`TECHNICAL_SUPPORT`、`NEGOTIATION`、`CHURN_RISK`、`UNKNOWN`。
+6. 感情的トーンを分類する：中立、苛立ち、エスカレーション中、和解的、緊急、フォーマル。
+7. 明示的なポリシーに照らしてリスクを評価する。返金 / 法務 / 契約 / 例外的値引き / 解約 / VIP の離反は、すべて `REQUIRES_MANAGER_APPROVAL` を強制する。
+8. 返信戦略を 1〜2 文で決める：受領、コミット、保留、エスカレーション、時間を確保。
+9. 返信ドラフトを 2 案生成する。Option A は安全かつフォーマル、Option B は温かく関係性重視。いずれも顧客の希望言語を尊重する。
+10. 承認ゲートを表に出す。リスク判断がドラフトをブロックする場合、レポートには `[BLOCKED — manager approval required]` と表示し、提案文面を引用してレビューに供する。
+11. レポートと、すべてのポート呼び出しを並べた監査サマリーをレンダリングする。任意で CRM にやり取りを書き戻す。
+
+## リスク判定フロー
+
+```mermaid
+flowchart LR
+    inbox["受信メール"] --> kw{"次のいずれかを含むか<br/>refund / 退款<br/>legal / 法務<br/>契約変更<br/>cancel / 解約<br/>代替ベンダー<br/>例外的値引き"}
+    kw -- "yes" --> hard["<b>REQUIRES_MANAGER_APPROVAL</b>"]
+    kw -- "no" --> ctx{"顧客コンテキスト"}
+    ctx -- "VIP + 入金遅延<br/>+ HIGH チケット" --> med["MEDIUM<br/>（重要度 +1）"]
+    ctx -- "配送遅延のみ" --> low["LOW"]
+    ctx -- "デフォルト" --> ok["LOW"]
+    hard --> block["ドラフトをブロック<br/>バナー表示<br/>監査：APPROVAL_DENIED"]
+    med --> ready["ドラフト生成<br/>監査：APPROVAL_GRANTED"]
+    low --> ready
+    ok --> ready
+```
+
+返金 / 法務 / 契約 / 解約に類する表現は、顧客ティアやトーンに関わらず**ハードストップ**です。モデルにこのゲートを上書きする手段はありません&mdash;&mdash;ルールは [`risk/RiskRules.java`](src/main/java/com/example/salesadvisor/risk/RiskRules.java) にあり、レビュアーが最初に読むべき場所に配置してあります。完全なポリシーは [`docs/safety-rules.md`](docs/safety-rules.md) にあります。
+
+## サンプル出力
+
+同梱のデモには代表的なケースを 1 件用意しています。Lumora Robotics Co., Ltd.（入金遅延を抱える VIP 顧客）の調達責任者である Wei-Ming Chen 氏が、配送遅延のあった注文に対する一部返金とクレジット付与を要求しており、8 月の更新も雲行きが怪しくなっています。
+
+下のブロックは、同梱サンプルに対して `java -cp out com.example.salesadvisor.SalesAdvisorCli` を実行した際の**実際の stdout** です&mdash;&mdash;スクリーンショットでも、手で整えたモックでもありません。表示されているものはすべて [`app/AdvisorWorkflow.java`](src/main/java/com/example/salesadvisor/app/AdvisorWorkflow.java) の決定的なワークフローが生成し、 [`app/AdvisorReportRenderer.java`](src/main/java/com/example/salesadvisor/app/AdvisorReportRenderer.java) がレンダリングしたものです。完全なトランスクリプトは [`samples/advisor-output.md`](samples/advisor-output.md) にも置いてあります。
+
+```
+=== Customer Email Sales Advisor — Report ===
+!! DRAFTS ARE BLOCKED — manager approval required before this reply can leave the building !!
+
+Customer Context
+- Name: Wei-Ming Chen
+- Company: Lumora Robotics Co., Ltd.
+- Tier: VIP
+- Contract status: ACTIVE (renews 2026-08-31)
+- Payment status: OVERDUE_30D
+- Recent orders:
+    * SO-2026-0188 — 2026-04-12 — $42000 — DELIVERED (On-time delivery, signed acceptance)
+    * SO-2026-0231 — 2026-04-29 — $18500 — DELAYED (Logistics partner missed ETA by 9 days)
+- Recent support state:
+    * SUP-7781 [HIGH] since 2026-04-25: Vision module misalignment after firmware 4.2 rollout
+
+Email Summary
+- Subject: Order SO-2026-0231 delay + firmware issue — refund expected
+- Current intent: TECHNICAL_SUPPORT
+- Emotional tone: URGENT
+- Key customer ask: Kelly, four days, no plan. Our CTO is now in the loop and is asking about the renewal in August. Please confirm by tomorrow: (1) revised delivery date, (2) refund or credit amount, (3) firmware fix ETA. Otherwise we will pause the renewal d...
+
+Risk Assessment
+- Risk level: REQUIRES_MANAGER_APPROVAL
+- Reasons:
+    * Customer signalled churn risk (mentioned alternative vendors / pause renewal / cancel).
+    * Customer asked for refund or credit.
+    * VIP customer has an overdue payment (OVERDUE_30D).
+    * Customer has an open HIGH-priority support ticket.
+- Requires manager approval: YES
+
+Recommended Reply Strategy
+- Tone: formal, careful, no commitments (the customer is signalling urgency — acknowledge time pressure explicitly)
+- Position: acknowledge, no commitments yet, escalate
+- Avoid saying:
+    * Promising any contractual concession without manager approval
+    * Confirming a refund or credit amount in the reply
+- Allowed commitments:
+    * Acknowledge receipt and the urgency of the situation today
+    * Pull together logistics, engineering, and account management within 24 hours
+    * Provide a written status update with concrete dates by end of next business day
+- Next best action: Hand off to Kelly Wu with full context; do not reply until approved
+
+Draft Option A: Safe / Formal
+Subject: Re: Order SO-2026-0231 delay + firmware issue — refund expected — recovery plan
+Body:
+Dear Wei-Ming Chen,
+
+Thank you for the directness of your message. I take the points you raised seriously, and I want to address them in order.
+I understand the impact this has had on your operations and on your team's confidence in us.
+
+Here is what I can confirm today:
+  - Acknowledge receipt and the urgency of the situation today
+  - Pull together logistics, engineering, and account management within 24 hours
+  - Provide a written status update with concrete dates by end of next business day
+
+Because some of the items you raised — in particular any commercial concession — fall outside what I can confirm in writing today, I am bringing them to Kelly Wu's attention so we can come back to you with a single, signed-off response.
+
+Please consider this message a status update rather than a final commercial response.
+
+Next step from our side: Hand off to Kelly Wu with full context; do not reply until approved
+
+Best regards,
+Kelly Wu
+
+Draft Option B: Warm / Relationship-Focused
+Subject: Re: Order SO-2026-0231 delay + firmware issue — refund expected — recovery plan
+Body:
+Hi Wei-Ming Chen,
+
+Thanks for being so direct with me — I'd much rather hear it this way than find out later. Let me address each point.
+I know this hasn't been the experience you expected from us, and I'm not going to pretend otherwise.
+
+Here is what I can lock in for you right now:
+  - Acknowledge receipt and the urgency of the situation today
+  - Pull together logistics, engineering, and account management within 24 hours
+  - Provide a written status update with concrete dates by end of next business day
+
+On the commercial side (anything that looks like a refund, credit, or change to the contract), I want to be honest: I won't commit to a number in this email until Kelly Wu has signed it off — that's how we keep our promises clean.
+
+Treat this as me keeping you in the loop, not as the final word on the commercial side.
+
+What I'm doing next: Hand off to Kelly Wu with full context; do not reply until approved
+
+Talk soon,
+Kelly Wu
+
+Follow-Up Actions
+- Brief the manager — owner: Kelly Wu, due: today
+    Walk the manager through the inbound message, the risk reasons, and the proposed reply before any draft leaves the building.
+- Engineering update on open ticket — owner: Engineering lead, due: within 48 hours
+    Confirm a firmware fix ETA for the open HIGH-priority ticket and write it up in customer-friendly language.
+- Schedule executive check-in — owner: Kelly Wu, due: this week
+    VIP customer — set up a short call with our account exec to keep the relationship anchored.
+
+Audit Summary
+- [...] LOOKUP_CUSTOMER: email=wm.chen@lumora-robotics.example
+- [...] LOAD_THREAD: customerEmail=wm.chen@lumora-robotics.example
+- [...] CLASSIFY_INTENT: thread=THR-90188
+- [...] INTENT_CLASSIFIED: TECHNICAL_SUPPORT
+- [...] CLASSIFY_TONE: thread=THR-90188
+- [...] TONE_CLASSIFIED: URGENT
+- [...] EVALUATE_RISK: intent=TECHNICAL_SUPPORT tone=URGENT
+- [...] RISK_LEVEL: REQUIRES_MANAGER_APPROVAL requiresManagerApproval=true
+- [...] DECIDE_STRATEGY: level=REQUIRES_MANAGER_APPROVAL
+- [...] GENERATE_DRAFTS: tone=formal, careful, no commitments
+- [...] RECOMMEND_FOLLOWUPS: intent=TECHNICAL_SUPPORT
+- [...] EVALUATE_APPROVAL: requiresManagerApproval=true
+- [...] APPROVAL_DENIED: manager flag=false; reasons=[...]
+- [...] CRM_RECORD: customerId=CUST-1042 summary=...; drafts BLOCKED
+
+=== End of Report ===
+```
+
+`--approve` を付けて再実行しても、メールを送ることはありません。承認を記録する監査行（`APPROVAL_GRANTED`）が 1 行追加され、BLOCKED バナーが消え、末尾の CRM レコードが `drafts READY` に変わるだけです。文面のコピー、メールクライアントへの貼り付け、もう一度の通読、そして送信ボタン押下は、依然として人間の仕事です。これは意図的な摩擦です。詳細は [`docs/safety-rules.md`](docs/safety-rules.md) を参照してください。
+
+> **MVP のドラフトは英語で出力されます**。これはテンプレートアダプターが決定的だからです。顧客の希望言語（ここでは `zh-TW`）でドラフトを生成するのは Phase 4 の範囲です&mdash;&mdash;`TemplateReplyDraftAdapter` が LLM ベースの Agents-Flex Skill に置き換わるタイミングです。詳細は [`docs/integration-plan.md`](docs/integration-plan.md)。戦略とリスク判定は監査可能性を保つため、言語非依存のままにしています。
+
+## 60 秒で動かす
+
+必要なのは標準 JDK 21 だけです。ビルドツールも、ネットワークも、認証情報も要りません。
+
+**PowerShell（Windows）：**
+
+```powershell
+javac -d out (Get-ChildItem -Recurse src/main/java/*.java | %{$_.FullName})
+java -Dstdout.encoding=UTF-8 -cp out com.example.salesadvisor.SalesAdvisorCli
+```
+
+> Windows では、コンソールのコードページが 65001 でなくても em ダッシュや中文字を正しく描画させるため、`-Dstdout.encoding=UTF-8` を付けます。すでに `chcp 65001` を実行済みなら省略可能です。
+
+**bash（macOS / Linux / WSL / Git Bash）：**
+
+```bash
+find src/main/java -name '*.java' | xargs javac -d out
+java -cp out com.example.salesadvisor.SalesAdvisorCli
+```
+
+CLI が受け取る flag はわずかです。すべて任意で、デフォルトは同梱のサンプルを指します。
+
+| Flag | 意味 |
+|------|------|
+| `--customer-profile <path>` | 顧客プロファイル JSON のパス。デフォルトは `samples/customer-profile.json`。 |
+| `--email-thread <path>` | メールスレッド JSON のパス。デフォルトは `samples/email-thread.json`。 |
+| `--approve` | レポートをマネージャー承認済みとしてマークする。監査行を 1 行追加し、ドラフト表示をアンブロックする。メールは送りません。 |
+
+## なぜチャットボットではないのか
+
+チャットボットはプロンプトファーストです。ユーザーが何かを入力し、モデルがそれを読み、返事をする。コンテキストは会話の履歴として遡れる範囲、せいぜい検索で持ち込んだスニペットを足したものです。モデルの仕事は目の前のメッセージに応えることに尽きます。
+
+セールスコパイロットは**コンテキストファースト**です。モデルが顧客のメールを目にする前に、エージェントは顧客のティア、契約状況、入金状況、最近の注文、未解決サポートチケット、アカウントマネージャーのメモをロードしておきます。メールはその背景に対して読まれ、リスク評価もその背景に対して行われ、ドラフトもその背景の編集済みプロジェクションに対して書かれます。順序が肝心です。チャットボットはメールを読んでから「これって誰だっけ？」と問います。コパイロットは何を読むより先に「これは誰か」に答え終えています。
+
+加えて**ハードな安全境界**があります。返金要求、法務的な言及、契約上の譲歩、例外的値引き、解約、VIP アカウントの離反シグナルは、すべてマネージャー承認ゲートを強制します。ドラフトは生成されますが、ブロックされます。監査ログがその理由を正確に説明します。チャットボットにはこのゲートはありません。本エージェントはこれを第一級の出力として持っています。
+
+3 つ目に、チャットボットがしばしば持たないものが監査ログそのものです。ポート呼び出しごとに 1 行が書かれ、CLI は各レポートの末尾に監査サマリーを出力します。レポートの判断が誤って見えるなら、結論からそれを生んだステップへと遡って読めます。**モデルが読み解ける形になっています。**
+
+## Port &rarr; MCP 移行
+
+完全なアーキテクチャは [`docs/architecture.md`](docs/architecture.md) にあります。要点はこうです。ヘキサゴナル構造、DI フレームワーク不使用、ドメインは Java 21 の record、JSON は Jackson でも Gson でもなく手書きリーダー、そして port &rarr; MCP のクリーンな対応がロードマップ全体を駆動します。
+
+| Port | 将来の置き換え先 |
+|------|---------|
+| `CustomerContextPort` | CRM MCP サーバー、顧客 DB に対する Text2SQL |
+| `EmailThreadPort` | Gmail MCP / Outlook MCP / IMAP MCP |
+| `RiskPolicyPort` | ポリシーエンジン、最終的には構造化出力を持つ LLM |
+| `ReplyDraftPort` | Agents-Flex Skill 経由の LLM |
+| `CrmPort` | CRM MCP の書き込み操作 |
+| `ApprovalPort` | Slack 承認ボット、チケッティングシステム |
+| `AuditLogPort` | OpenTelemetry、Splunk、内部監査 DB |
+
+[`docs/integration-plan.md`](docs/integration-plan.md) の各フェーズはこのうち 1〜2 個のポートを置き換えます。残りのパッケージは動きません。
+
+## ロードマップ
+
+- [x] **Phase 1 &mdash; MVP。** モックアダプター、決定的な分類器、コンソール監査。本リポジトリ。
+- [ ] **Phase 2 &mdash; 実メール。** `MockEmailThreadAdapter` を Gmail MCP / Outlook MCP に置換。読み取りは引き続き顧客スコープ。
+- [ ] **Phase 3 &mdash; 実 CRM。** `MockCustomerContextAdapter` を CRM MCP と顧客 DB に対する Text2SQL に置換。
+- [ ] **Phase 4 &mdash; 実 LLM ドラフト。** `TemplateReplyDraftAdapter` を Claude / Bedrock / ローカル LLM を呼ぶ Agents-Flex Skill に置換し、安定したプリアンブルにプロンプトキャッシュを効かせる。
+- [ ] **Phase 5 &mdash; 承認ルーティング。** `ManualApprovalAdapter` を Slack 承認ボットまたはチケッティングシステム連携に置換。
+- [ ] **Phase 6 &mdash; ナレッジベース / RAG。** 過去の受注／失注プレイブックのベクトルストアを新しいポートの裏に差し込む。
+- [ ] **Phase 7 &mdash; Spring Boot サービス。** ワークフローを Spring Boot で包み、他の Claude Code skill から呼べる MCP サーバーとして公開する。
+
+各フェーズの詳細な形、それが導入する新たな安全考慮事項、そして意図的に**要求しない** OAuth スコープは [`docs/integration-plan.md`](docs/integration-plan.md) にまとめてあります。
+
+## コードではなくパターンを借りる
+
+本プロジェクトは複数のオープンソース成果物に対し、概念上の明確な負い目があります。**ただし、それらのソースコードは本リポジトリに 1 行も入っていません。**
+
+- [Agents-Flex](https://github.com/agents-flex/agents-flex) &mdash; Java エージェントフレームワーク。Skill を仕様として扱う思想と、Phase 4 で Agents-Flex Skill が差し込まれる前提に合わせた port / adapter の形を採用しました。ソースファイル、パッケージレイアウト、クラス名のいずれもコピーしていません。
+- [marlinjai/email-mcp](https://github.com/marlinjai/email-mcp) &mdash; プロバイダー横断の統一メール MCP。`EmailThreadPort` に「単一ポートで複数プロバイダーを扱う」形を採用しました。MCP サーバーを出荷するのではなく、消費する計画です。
+- 公開されている Gmail MCP サーバーの例 &mdash; スレッド読み取り、メッセージ読み取り、ドラフト作成、承認後送信。スレッド単位の読み取り、送信前にドラフトを置く流れ、書き込み前承認の姿勢を採用しました。
+- 公開されている CRM MCP サーバーの例 &mdash; 顧客取得、`recordInteraction` 風の書き込み。読み取り中心の書き込み面と、構造化ペイロードでの書き込み形を採用しました。
+
+これらのプロジェクトのソースコードを vendor したりフォークしたりコピーしたりはしていません。プロジェクトごとに何を採用し、何を明示的に採用しなかったかの内訳は [`docs/borrowed-patterns.md`](docs/borrowed-patterns.md) にあります。
+
+## Claude Code の skill として使う
+
+エージェント定義は [`skills/customer-email-sales-advisor/SKILL.md`](skills/customer-email-sales-advisor/SKILL.md) にあります。`skills/customer-email-sales-advisor/` フォルダーをそのまま Claude Code の skills ディレクトリに置く（あるいはプロジェクトローカルのものを使う）と、Claude にこんな依頼ができます。
+
+- "幫我看一下王經理那封信怎麼回。"
+- "Take a look at the Lumora thread &mdash; Wei-Ming is asking for a refund."
+- "Customer CUST-1042 just escalated. Walk me through it."
+- 「Lumora の Wei-Ming さんからのメール、どう返すか一緒に考えてもらえますか。」
+
+Claude は Skill に書かれた 11 ステップのワークフローに従い、ツール層として同梱の Java CLI を呼び出し、レポートを提示します。リスク判定が `REQUIRES_MANAGER_APPROVAL` なら、Claude はドラフトがブロックされていることを伝え、明示的な承認が出るまで止まります。
+
+## ドキュメント
+
+| ドキュメント | 内容 |
+|-----|--------------|
+| [`docs/architecture.md`](docs/architecture.md) | ヘキサゴナル構造、パッケージ境界、なぜ DI を使わないか、なぜ JSON リーダーを手書きしたか、拡張ポイント。 |
+| [`docs/safety-rules.md`](docs/safety-rules.md) | すべてのレッドライン、それぞれの**なぜ**と**どう強制するか**。 |
+| [`docs/integration-plan.md`](docs/integration-plan.md) | MCP / Agents-Flex / Spring Boot に向けたフェーズごとの移行計画。要求する／しない OAuth スコープ。 |
+| [`docs/borrowed-patterns.md`](docs/borrowed-patterns.md) | 参考プロジェクトごとに採用したパターンと、明示的にコピーしなかったソースコードの内訳。 |
+| [`samples/advisor-output.md`](samples/advisor-output.md) | デフォルト実行と `--approve` 付き実行の出力をそのまま収録。 |
+| [`skills/customer-email-sales-advisor/SKILL.md`](skills/customer-email-sales-advisor/SKILL.md) | エージェント定義。実質的なプロダクト本体。 |
+
+## コントリビュート
+
+issue、提案、反例を歓迎します&mdash;&mdash;特に反例を。本エージェントが下手に対応してしまうリクエスト（誤分類されたスレッド、本来トリガーされるべきだった承認ゲートが発動しなかったケース、社内向けフィールドが漏れているドラフトなど）を見つけたら、その悪い出力を生んだ入力とともに issue を立ててください。 [`docs/safety-rules.md`](docs/safety-rules.md) の安全ルールがプロダクトそのものであり、それを守ることが最も価値あるコントリビュートです。
+
+## ライセンス
+
+MIT。詳細は [`LICENSE`](LICENSE)。
+
+## Suggested GitHub topics
+
+`java` · `java21` · `ai-agent` · `email-copilot` · `sales-automation` · `mcp` · `agents-flex` · `claude-code` · `hexagonal-architecture` · `llm-tools` · `account-management` · `b2b`
