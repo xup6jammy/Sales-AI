@@ -1,0 +1,46 @@
+{
+  "id": "CUST-1042",
+  "primaryEmail": "wm.chen@lumora-robotics.example",
+  "displayName": "Wei-Ming Chen",
+  "company": "Lumora Robotics Co., Ltd.",
+  "tier": "VIP",
+  "industry": "Industrial automation",
+  "country": "TW",
+  "preferredLanguage": "zh-TW",
+  "accountManager": "Kelly Wu",
+  "contractStatus": "ACTIVE",
+  "contractRenewalDate": "2026-08-31",
+  "paymentStatus": "OVERDUE_30D",
+  "lifetimeValueUsd": 480000,
+  "history": {
+    "recentOrders": [
+      {
+        "orderId": "SO-2026-0188",
+        "orderedOn": "2026-04-12",
+        "amountUsd": 42000,
+        "status": "DELIVERED",
+        "note": "On-time delivery, signed acceptance"
+      },
+      {
+        "orderId": "SO-2026-0231",
+        "orderedOn": "2026-04-29",
+        "amountUsd": 18500,
+        "status": "DELAYED",
+        "note": "Logistics partner missed ETA by 9 days"
+      }
+    ],
+    "openSupportTickets": [
+      {
+        "ticketId": "SUP-7781",
+        "openedOn": "2026-04-25",
+        "priority": "HIGH",
+        "summary": "Vision module misalignment after firmware 4.2 rollout"
+      }
+    ],
+    "notes": [
+      "Customer escalated twice during Q1 — relationship recovered after on-site visit by Kelly.",
+      "Procurement lead Joyce is detail-oriented and prefers written confirmation.",
+      "VIP tier — any commercial concession requires manager approval per playbook v3."
+    ]
+  }
+}
