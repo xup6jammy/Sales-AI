@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/hero.svg" alt="Customer Email Sales Advisor — context first, never auto-sends" />
+  <img src="docs/assets/hero.svg" alt="Sales AI — context first, never auto-sends" />
 </p>
 
 <p align="center">
@@ -32,7 +32,7 @@
 
 | | What it brings | Why it matters |
 |---|---|---|
-| **Skill is the agent** | The user-facing agent lives in [`SKILL.md`](skills/customer-email-sales-advisor/SKILL.md), not in code. The Java MVP is just the engine. | Replace the engine (Java CLI &rarr; Gmail MCP &rarr; CRM MCP) phase by phase without changing how Claude Code calls it. |
+| **Skill is the agent** | The user-facing agent lives in [`SKILL.md`](skills/sales-ai/SKILL.md), not in code. The Java MVP is just the engine. | Replace the engine (Java CLI &rarr; Gmail MCP &rarr; CRM MCP) phase by phase without changing how Claude Code calls it. |
 | **Hard safety gate** | Refund / legal / contract / discount / churn signals force `REQUIRES_MANAGER_APPROVAL` and **block the drafts**. | Other agent demos rely on the model "behaving"; this one literally has no SMTP code in the build. It cannot send mail even by accident. |
 | **Context-first, not prompt-first** | Customer profile, contract, payments, tickets, AM notes load **before** the model sees the email. | A senior AM does this in their head. LLMs need it written down. |
 | **Auditable by construction** | Every port call writes one audit line; the CLI prints them at the bottom of every report. | If a decision looks wrong, read backwards from the report to the inputs. |
@@ -49,15 +49,16 @@ flowchart TD
     cc -->|reads| skill["<b>SKILL.md</b><br/>11-step workflow<br/>safety rules<br/>output format"]
     skill -->|orchestrates| tools(["Tool layer<br/><i>replaceable per phase</i>"])
 
-    tools ==> mvp["<b>MVP — this repo</b><br/>Java 21 CLI<br/>mock adapters<br/>console audit"]
+    tools ==> mvp["<b>Engine — this repo</b><br/>Java 21 CLI<br/>JSON or JDBC source<br/>console audit"]
+    tools ==> mcp["<b>SQL MCP server — this repo</b><br/>4 whitelisted tools<br/>SQLite / MySQL / Postgres<br/>JSON-RPC over stdio"]
     tools -.->|Phase 2| email["Gmail MCP<br/>Outlook MCP"]
-    tools -.->|Phase 3| crm["CRM MCP<br/>Text2SQL"]
+    tools -.->|Phase 3b| crm["CRM MCP<br/>Salesforce / HubSpot<br/>Text2SQL"]
     tools -.->|Phase 4| llm["Agents-Flex Skill<br/>Claude / Bedrock / local LLM"]
     tools -.->|Phase 5| approve["Slack approval bot"]
     tools -.->|Phase 6| rag["RAG knowledge base"]
 ```
 
-The same `SKILL.md` runs every phase. Today it calls the Java CLI in this repo. Tomorrow it calls Gmail/Outlook MCP and a CRM MCP. **The 11-step workflow and the safety rules do not change between phases** &mdash; only the implementations behind the ports move. That is the whole point.
+The same `SKILL.md` runs every phase. The bold lines are what ships in this repo today: the Java engine and the SQL MCP server with four whitelisted query tools. The dotted lines are future replacements — Gmail / Outlook MCP, a real CRM, an LLM behind the draft port. **The 11-step workflow and the safety rules do not change between phases** &mdash; only the implementations behind the ports move. That is the whole point.
 
 This is what makes the project useful as a study piece, not just as a demo: the engine you read today is exactly the engine that an MCP-backed production deployment will eventually replace, port by port. See [`docs/integration-plan.md`](docs/integration-plan.md) for the full migration map.
 
@@ -125,16 +126,16 @@ flowchart LR
     ok --> ready
 ```
 
-Refund / legal / contract / cancellation language is a **hard stop**, regardless of customer tier or tone. The model never gets to override this gate &mdash; the rule lives in [`risk/RiskRules.java`](src/main/java/com/example/salesadvisor/risk/RiskRules.java) and is the first thing a reviewer reads. The full policy lives in [`docs/safety-rules.md`](docs/safety-rules.md).
+Refund / legal / contract / cancellation language is a **hard stop**, regardless of customer tier or tone. The model never gets to override this gate &mdash; the rule lives in [`risk/RiskRules.java`](src/main/java/com/example/salesai/risk/RiskRules.java) and is the first thing a reviewer reads. The full policy lives in [`docs/safety-rules.md`](docs/safety-rules.md).
 
 ## Sample output
 
 The bundled demo ships a representative case: Wei-Ming Chen, the procurement lead at Lumora Robotics Co., Ltd. (a VIP customer with overdue payment), is asking for a partial refund and credit on a delayed order, with the August renewal now in question.
 
-The block below is the **actual stdout** of `java -cp out com.example.salesadvisor.SalesAdvisorCli` against the bundled samples &mdash; not a screenshot, not a hand-edited mock. Everything you see is produced by the deterministic workflow in [`app/AdvisorWorkflow.java`](src/main/java/com/example/salesadvisor/app/AdvisorWorkflow.java) and rendered by [`app/AdvisorReportRenderer.java`](src/main/java/com/example/salesadvisor/app/AdvisorReportRenderer.java). The full transcript also lives at [`samples/advisor-output.md`](samples/advisor-output.md).
+The block below is the **actual stdout** of `java -cp out com.example.salesai.SalesAiCli` against the bundled samples &mdash; not a screenshot, not a hand-edited mock. Everything you see is produced by the deterministic workflow in [`app/AdvisorWorkflow.java`](src/main/java/com/example/salesai/app/AdvisorWorkflow.java) and rendered by [`app/AdvisorReportRenderer.java`](src/main/java/com/example/salesai/app/AdvisorReportRenderer.java). The full transcript also lives at [`samples/advisor-output.md`](samples/advisor-output.md).
 
 ```
-=== Customer Email Sales Advisor — Report ===
+=== Sales AI — Report ===
 !! DRAFTS ARE BLOCKED — manager approval required before this reply can leave the building !!
 
 Customer Context
@@ -259,7 +260,7 @@ You need a stock JDK 21 and nothing else. No build tool. No network. No credenti
 
 ```powershell
 javac -d out (Get-ChildItem -Recurse src/main/java/*.java | %{$_.FullName})
-java -Dstdout.encoding=UTF-8 -cp out com.example.salesadvisor.SalesAdvisorCli
+java -Dstdout.encoding=UTF-8 -cp out com.example.salesai.SalesAiCli
 ```
 
 > On Windows, `-Dstdout.encoding=UTF-8` makes em-dashes and 中文 render correctly even when the console code page is not 65001. Drop the flag if you have already run `chcp 65001`.
@@ -268,7 +269,7 @@ java -Dstdout.encoding=UTF-8 -cp out com.example.salesadvisor.SalesAdvisorCli
 
 ```bash
 find src/main/java -name '*.java' | xargs javac -d out
-java -cp out com.example.salesadvisor.SalesAdvisorCli
+java -cp out com.example.salesai.SalesAiCli
 ```
 
 The CLI takes a small set of flags. All are optional; the defaults point at the bundled samples.
@@ -278,6 +279,54 @@ The CLI takes a small set of flags. All are optional; the defaults point at the 
 | `--customer-profile <path>` | Path to the customer profile JSON. Defaults to `samples/customer-profile.json`. |
 | `--email-thread <path>` | Path to the email thread JSON. Defaults to `samples/email-thread.json`. |
 | `--approve` | Marks the report as manager-approved. Writes an extra audit line; unblocks display of drafts. Does NOT send mail. |
+| `--db <jdbc-url>` | Load the customer profile from a JDBC database instead of JSON. Pairs with `--db-user` / `--db-password`. Requires `--email`. |
+
+## Phase 2 preview: SQL MCP Server
+
+The repo also ships an opt-in MCP server that exposes the same customer data as **whitelisted SQL-backed tools** for Claude Code (or any MCP client) to call directly. JSON-RPC 2.0 over stdin/stdout, four tools, no generic SQL surface.
+
+```
+┌──────────────┐  stdio JSON-RPC  ┌─────────────────────┐  JDBC  ┌──────────┐
+│ Claude Code  │ ───────────────▶ │ SalesMcpServer      │ ─────▶ │ SQLite / │
+│ (the skill)  │ ◀─────────────── │  4 whitelisted tools│        │ MySQL /  │
+└──────────────┘                  └─────────────────────┘        │ Postgres │
+                                                                  └──────────┘
+```
+
+| MCP tool | What it does | Backed by |
+|---|---|---|
+| `customer.findByEmail` | One customer by primary email (exact, case-insensitive) | one prepared `SELECT` |
+| `customer.findById` | One customer by id, e.g. `CUST-1042` | one prepared `SELECT` |
+| `customer.listOrders` | Recent orders for one customer, capped at 50 | one prepared `SELECT` |
+| `customer.listOpenTickets` | Open support tickets for one customer | one prepared `SELECT` |
+
+**There is no `runSql(query)` tool, and there will not be one.** The whitelist is the safety boundary that honours the "scoped reads" promise in [`SKILL.md`](skills/sales-ai/SKILL.md). Prompt injection arriving in customer email cannot widen the agent's data access — adding a tool requires a code change.
+
+### 90-second demo (SQLite, zero infrastructure)
+
+```powershell
+# 1. Download the SQLite JDBC driver into mcp-server/lib/
+Invoke-WebRequest `
+  -Uri 'https://repo1.maven.org/maven2/org/xerial/sqlite-jdbc/3.42.0.1/sqlite-jdbc-3.42.0.1.jar' `
+  -OutFile 'mcp-server/lib/sqlite-jdbc-3.42.0.1.jar'
+
+# 2. Compile the MCP server
+$src = Get-ChildItem -Recurse mcp-server/src/main/java -Filter *.java | %{ $_.FullName }
+javac -d mcp-server/out -Xlint:all $src
+
+# 3. Seed a demo SQLite DB with the same Lumora Robotics scenario
+java -cp 'mcp-server/lib/sqlite-jdbc-3.42.0.1.jar;mcp-server/out' `
+     com.example.salesai.mcp.SeedData
+
+# 4. Re-run the engine, this time pointed at the SQLite DB
+java -Dstdout.encoding=UTF-8 `
+     -cp 'out;mcp-server/lib/sqlite-jdbc-3.42.0.1.jar' `
+     com.example.salesai.SalesAiCli `
+     --db jdbc:sqlite:mcp-server/demo.db `
+     --email wm.chen@lumora-robotics.example
+```
+
+Same report, same risk decision, same blocked drafts &mdash; this time sourced from real `SELECT` statements. To wire the MCP server into Claude Code itself (so the LLM can call the tools, not just the engine), see [`mcp-server/README.md`](mcp-server/README.md). For the design rationale &mdash; why whitelisting, why stdio, why ship our own server when generic DB MCPs exist &mdash; see [`docs/mcp-server.md`](docs/mcp-server.md).
 
 ## Why this is not a chatbot
 
@@ -309,7 +358,8 @@ Each phase of [`docs/integration-plan.md`](docs/integration-plan.md) replaces on
 
 - [x] **Phase 1 &mdash; MVP.** Mock adapters, deterministic classifiers, console audit. This repo.
 - [ ] **Phase 2 &mdash; Real email.** Replace `MockEmailThreadAdapter` with Gmail MCP / Outlook MCP. Reads remain customer-scoped.
-- [ ] **Phase 3 &mdash; Real CRM.** Replace `MockCustomerContextAdapter` with CRM MCP and Text2SQL on a customer DB.
+- [x] **Phase 3a &mdash; Real database.** `JdbcCustomerContextAdapter` + a SQL MCP server with four whitelisted query tools. SQLite for the demo, MySQL / Postgres schemas committed. See [`mcp-server/`](mcp-server/) and [`docs/mcp-server.md`](docs/mcp-server.md).
+- [ ] **Phase 3b &mdash; Production CRM.** Point the same JDBC adapter and the same MCP tools at a real CRM (Salesforce, HubSpot) once Text2SQL is in scope.
 - [ ] **Phase 4 &mdash; Real LLM drafts.** Replace `TemplateReplyDraftAdapter` with an Agents-Flex Skill calling Claude / Bedrock / a local LLM, with prompt caching on the stable preamble.
 - [ ] **Phase 5 &mdash; Approval routing.** Replace `ManualApprovalAdapter` with a Slack approval bot or a ticketing-system integration.
 - [ ] **Phase 6 &mdash; Knowledge base / RAG.** Plug a vector store of past won / lost playbooks behind a new port.
@@ -330,7 +380,7 @@ We did not vendor, fork, or copy source code from any of these projects. The ful
 
 ## Use it as a Claude Code skill
 
-The agent definition lives in [`skills/customer-email-sales-advisor/SKILL.md`](skills/customer-email-sales-advisor/SKILL.md). Drop the `skills/customer-email-sales-advisor/` folder into your Claude Code skills directory (or use the project-local one), then ask Claude things like:
+The agent definition lives in [`skills/sales-ai/SKILL.md`](skills/sales-ai/SKILL.md). Drop the `skills/sales-ai/` folder into your Claude Code skills directory (or use the project-local one), then ask Claude things like:
 
 - "幫我看一下王經理那封信怎麼回。"
 - "Take a look at the Lumora thread &mdash; Wei-Ming is asking for a refund."
@@ -346,8 +396,10 @@ Claude will follow the eleven-step workflow in the Skill, call the bundled Java 
 | [`docs/safety-rules.md`](docs/safety-rules.md) | Every red line, with the *why* and the *how it's enforced* for each. |
 | [`docs/integration-plan.md`](docs/integration-plan.md) | Phase-by-phase migration toward MCP / Agents-Flex / Spring Boot. OAuth scopes we will and will not request. |
 | [`docs/borrowed-patterns.md`](docs/borrowed-patterns.md) | Per-reference breakdown of patterns adopted and source code explicitly not copied. |
+| [`docs/mcp-server.md`](docs/mcp-server.md) | Design rationale for the SQL MCP server: why whitelist tools, why stdio, why ship our own. |
+| [`mcp-server/README.md`](mcp-server/README.md) | How to compile, seed, and wire the MCP server into Claude Code. |
 | [`samples/advisor-output.md`](samples/advisor-output.md) | Both runs (default + `--approve`) verbatim. |
-| [`skills/customer-email-sales-advisor/SKILL.md`](skills/customer-email-sales-advisor/SKILL.md) | The agent definition. The actual product. |
+| [`skills/sales-ai/SKILL.md`](skills/sales-ai/SKILL.md) | The agent definition. The actual product. |
 
 ## Contributing
 

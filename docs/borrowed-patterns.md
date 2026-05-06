@@ -10,7 +10,7 @@ Reference: [agents-flex/agents-flex](https://github.com/agents-flex/agents-flex)
 
 **Patterns we adopted**
 
-- *Skill-as-spec philosophy.* Agents-Flex treats a Skill as a declarative unit that an LLM consumes. Our `skills/customer-email-sales-advisor/SKILL.md` is shaped the same way: it tells the model what to do, in what order, with what guardrails, and the engine is whatever currently fulfils those tool calls. This is what lets us claim "the Skill is the agent, the engine is replaceable per phase".
+- *Skill-as-spec philosophy.* Agents-Flex treats a Skill as a declarative unit that an LLM consumes. Our `skills/sales-ai/SKILL.md` is shaped the same way: it tells the model what to do, in what order, with what guardrails, and the engine is whatever currently fulfils those tool calls. This is what lets us claim "the Skill is the agent, the engine is replaceable per phase".
 - *Port / adapter separation that mirrors how Agents-Flex Skills will plug in later.* When Phase 4 swaps `TemplateReplyDraftAdapter` for an LLM-backed adapter, the natural shape on the other side is an Agents-Flex Skill. Our port signatures were chosen so that drop-in is a single class.
 - *Text2SQL as a future shape for `CustomerContextPort`.* Phase 3 of the integration plan explicitly cites Agents-Flex Smart Data Query as the conceptual reference for moving from a CRM API to a SQL-grounded customer view.
 - *Spring Boot integration as the eventual deployment shape.* Phase 7 wraps the workflow in Spring Boot and exposes it as an MCP server. Agents-Flex's Spring Boot module is the precedent.

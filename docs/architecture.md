@@ -1,15 +1,15 @@
 # Architecture
 
-This document describes how the Customer Email Sales Advisor is laid out internally, why it is laid out that way, and where the seams are for replacing pieces with real services in later phases.
+This document describes how the Sales AI is laid out internally, why it is laid out that way, and where the seams are for replacing pieces with real services in later phases.
 
-The architectural premise is on the front page of the README and bears repeating here: **the Skill is the agent, the Java MVP is the engine, replaceable per phase.** The workflow defined in `skills/customer-email-sales-advisor/SKILL.md` is the spine. Today the engine is one Java CLI. Tomorrow it is a set of MCP servers. The skill does not change.
+The architectural premise is on the front page of the README and bears repeating here: **the Skill is the agent, the Java MVP is the engine, replaceable per phase.** The workflow defined in `skills/sales-ai/SKILL.md` is the spine. Today the engine is one Java CLI. Tomorrow it is a set of MCP servers. The skill does not change.
 
 ## Hexagonal layout
 
 The codebase follows a hexagonal (ports and adapters) layout. The intent is that the domain logic — what an account manager needs to know to reply to a customer — does not depend on any of the things that change (Gmail vs Outlook, rule-based vs LLM classifier, manual approval vs Slack bot).
 
 ```
-com.example.salesadvisor
+com.example.salesai
 ├── domain        // pure data: records, enums, no IO, no logging
 ├── ports         // interfaces only: what the use-case needs from the world
 ├── adapters      // mock implementations of every port for the MVP
@@ -39,7 +39,7 @@ The cost of doing it by hand is one wiring method. The benefit is that the entir
 
 ## The 11-step workflow
 
-The CLI in `app` runs exactly these eleven steps, in this order, every time. Each step names the port that performs the work. The same workflow is described in user-facing language in `skills/customer-email-sales-advisor/SKILL.md`.
+The CLI in `app` runs exactly these eleven steps, in this order, every time. Each step names the port that performs the work. The same workflow is described in user-facing language in `skills/sales-ai/SKILL.md`.
 
 | # | Step | Port |
 |---|------|------|
@@ -59,19 +59,55 @@ Every port call writes one line to the audit log at the moment it returns. Step 
 
 ## Port to MCP mapping
 
-The whole point of the port layer is that each port maps cleanly to a future MCP server (or set of servers). The roadmap is fixed by these mappings.
+The whole point of the port layer is that each port maps cleanly to an MCP server (or set of servers). The roadmap is fixed by these mappings.
 
-| Port | Future replacement |
-|------|--------------------|
-| `CustomerContextPort` | CRM MCP server, Text2SQL on customer DB |
-| `EmailThreadPort` | Gmail MCP / Outlook MCP / IMAP MCP |
-| `RiskPolicyPort` | Policy engine, eventually LLM with structured output |
-| `ReplyDraftPort` | LLM via Agents-Flex Skill |
-| `CrmPort` | CRM MCP write operations |
-| `ApprovalPort` | Slack approval bot, ticketing system |
-| `AuditLogPort` | OpenTelemetry, Splunk, internal audit DB |
+| Port | Status today | Future replacement |
+|------|--------------|--------------------|
+| `CustomerContextPort` | ✅ JDBC adapter + SQL MCP server (this repo) | Real CRM via Text2SQL |
+| `EmailThreadPort` | Mock JSON | Gmail MCP / Outlook MCP / IMAP MCP |
+| `RiskPolicyPort` | Rule-based Java | Policy engine, eventually LLM with structured output |
+| `ReplyDraftPort` | Templates | LLM via Agents-Flex Skill |
+| `CrmPort` | No-op | CRM MCP write operations |
+| `ApprovalPort` | CLI flag | Slack approval bot, ticketing system |
+| `AuditLogPort` | Console | OpenTelemetry, Splunk, internal audit DB |
 
 Each phase of [`integration-plan.md`](./integration-plan.md) replaces one or two of these ports. The other packages do not move.
+
+## Database layer (shipped in Phase 3a)
+
+`CustomerContextPort` has two implementations today, picked by command-line flag:
+
+| Adapter | When to use | Where it reads from |
+|---|---|---|
+| `MockCustomerContextAdapter` | Default; demos and tests | `samples/customer-profile.json` |
+| `JdbcCustomerContextAdapter` | `--db jdbc:...` | `customers` / `orders` / `support_tickets` / `customer_notes` tables |
+
+The schema lives in [`mcp-server/schema/`](../mcp-server/schema) — one DDL file per dialect (SQLite, MySQL, Postgres). All three are deliberately ANSI-compatible, so the adapter and MCP server use one set of `?`-bound queries across all three databases. The JDBC URL prefix selects the dialect; no per-database code path is needed yet.
+
+The JDBC adapter is the engine's path to a real database. It does not go through MCP — that would add two extra hops between two pieces of code that already share the `domain` types. Direct JDBC is the right choice when the consumer is in-process.
+
+## SQL MCP server (shipped in Phase 3a)
+
+The MCP server is a separate sub-project at [`mcp-server/`](../mcp-server). It speaks JSON-RPC 2.0 over stdin/stdout (the transport Claude Code uses for spawned servers) and exposes four whitelisted SQL-backed tools:
+
+```
+┌──────────────┐  stdio JSON-RPC  ┌─────────────────────┐  JDBC  ┌──────────┐
+│ Claude Code  │ ───────────────▶ │ SalesMcpServer      │ ─────▶ │ SQLite / │
+│ (the skill)  │ ◀─────────────── │  4 whitelisted tools│        │ MySQL /  │
+└──────────────┘                  └─────────────────────┘        │ Postgres │
+                                                                  └──────────┘
+```
+
+| Tool | SQL it runs |
+|---|---|
+| `customer.findByEmail(email)` | `SELECT ... WHERE LOWER(primary_email) = LOWER(?)` |
+| `customer.findById(customerId)` | `SELECT ... WHERE id = ?` |
+| `customer.listOrders(customerId, limit?)` | `SELECT ... WHERE customer_id = ? ORDER BY ordered_on DESC LIMIT ?` |
+| `customer.listOpenTickets(customerId)` | `SELECT ... WHERE customer_id = ? AND status = 'OPEN'` |
+
+There is **no generic `runSql(query)` tool**, by design. The whitelist is the boundary: the LLM can supply parameter values, never SQL fragments. Adding a new tool is a code change with a code review. This is how the "scoped reads" promise from `SKILL.md` survives prompt injection in inbound customer email.
+
+The server is intentionally minimal — protocol layer, JDBC layer, four tools, one entry point. No external MCP SDK; the protocol fits in 80 lines of Java. Driver jars are not committed (license, size, choice); see [`mcp-server/lib/README.md`](../mcp-server/lib/README.md). Full design rationale lives in [`mcp-server.md`](./mcp-server.md).
 
 ## Why records
 
@@ -101,9 +137,9 @@ Three extensions are likely to land first. Each one is a single-class swap thank
 
 ## Source tree
 
-The list below is the planned layout for the `.java` files in `src/main/java/com/example/salesadvisor/`. A separate agent owns the actual code; this document tracks what each file is for.
+The list below is the planned layout for the `.java` files in `src/main/java/com/example/salesai/`. A separate agent owns the actual code; this document tracks what each file is for.
 
-- `app/SalesAdvisorCli.java` — entry point, argument parsing, builds the adapter graph by hand.
+- `app/SalesAiCli.java` — entry point, argument parsing, builds the adapter graph by hand.
 - `app/AdvisorWorkflow.java` — the 11-step workflow, one method per step, called in order.
 - `app/AdvisorReportRenderer.java` — formats the final `AdvisorReport` into the section headings the README documents.
 - `app/CliOptions.java` — record holding parsed CLI flags (`--approve`, `--customer-profile`, `--email-thread`).

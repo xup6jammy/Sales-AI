@@ -1,4 +1,4 @@
-# Customer Email Sales Advisor — Design Spec
+# Sales AI — Design Spec
 
 **Date:** 2026-05-06
 **Status:** Approved — proceeding to implementation
@@ -26,7 +26,7 @@ A **Sales / Account Manager Email Copilot** that:
 ## Architectural premise: the SKILL is the agent
 
 ```
-Claude Code  →  reads  →  skills/customer-email-sales-advisor/SKILL.md
+Claude Code  →  reads  →  skills/sales-ai/SKILL.md
                                        │
                                        │ orchestrates
                                        ▼
@@ -55,8 +55,8 @@ or the safety rules in `SKILL.md`.
 ## Hexagonal layout
 
 ```
-com.example.salesadvisor
-├── SalesAdvisorCli          entry point + CLI argument parsing
+com.example.salesai
+├── SalesAiCli          entry point + CLI argument parsing
 ├── domain                   immutable records (no logic, no I/O)
 ├── ports                    interfaces — every future MCP integration point
 ├── adapters                 mock / in-memory implementations of ports
@@ -160,10 +160,10 @@ audit log. **No email is ever sent**, regardless of approval state, in MVP.
 ## CLI surface
 
 ```
-java -cp out com.example.salesadvisor.SalesAdvisorCli                # bundled demo
-java -cp out com.example.salesadvisor.SalesAdvisorCli --help
-java -cp out com.example.salesadvisor.SalesAdvisorCli --approve      # simulate approval
-java -cp out com.example.salesadvisor.SalesAdvisorCli \
+java -cp out com.example.salesai.SalesAiCli                # bundled demo
+java -cp out com.example.salesai.SalesAiCli --help
+java -cp out com.example.salesai.SalesAiCli --approve      # simulate approval
+java -cp out com.example.salesai.SalesAiCli \
     --customer-profile path/to/customer.json \
     --email-thread path/to/thread.json
 ```
@@ -198,14 +198,14 @@ requirement, approval grant (if `--approve`).
 - `docs/safety-rules.md` — every red line, codified
 - `docs/integration-plan.md` — phased migration to Agents-Flex / MCP / Spring Boot
 - `docs/borrowed-patterns.md` — what we learned from each reference repo and why we did not vendor any code
-- `skills/customer-email-sales-advisor/SKILL.md` — the agent definition
+- `skills/sales-ai/SKILL.md` — the agent definition
 - `samples/customer-profile.json`, `samples/email-thread.json`, `samples/advisor-output.md`
 - `src/main/java/...` — Java 21 sources
 
 ## Acceptance criteria
 
 - `javac` builds the project on Java 21 with no warnings escalated to errors.
-- `java -cp out com.example.salesadvisor.SalesAdvisorCli` prints the full
+- `java -cp out com.example.salesai.SalesAiCli` prints the full
   spec'd report end to end.
 - HIGH and `REQUIRES_MANAGER_APPROVAL` paths visibly block draft delivery.
 - No real email is sent. No real credentials are present.

@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" width="1280" height="360" role="img" aria-labelledby="title desc">
-  <title id="title">Customer Email Sales Advisor</title>
+  <title id="title">Sales AI</title>
   <desc id="desc">An AI sales copilot that reads customer email like a senior account manager would — context first, draft last, never hits send.</desc>
 
   <defs>
@@ -33,7 +33,7 @@
   </g>
 
   <!-- Title -->
-  <text x="80" y="160" font-family="ui-sans-serif, -apple-system, system-ui, 'Segoe UI', sans-serif" font-size="60" font-weight="700" fill="#F8FAFC" letter-spacing="-1.5">Customer Email Sales Advisor</text>
+  <text x="80" y="160" font-family="ui-sans-serif, -apple-system, system-ui, 'Segoe UI', sans-serif" font-size="60" font-weight="700" fill="#F8FAFC" letter-spacing="-1.5">Sales AI</text>
 
   <!-- Tagline -->
   <text x="80" y="210" font-family="ui-sans-serif, -apple-system, system-ui, 'Segoe UI', sans-serif" font-size="22" font-weight="400" fill="#CBD5E1">An AI sales copilot that reads your customer's email</text>
