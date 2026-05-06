@@ -3,8 +3,8 @@
 The transcripts below are the **actual stdout** of the CLI against the bundled samples. They were captured with:
 
 ```bash
-java -Dstdout.encoding=UTF-8 -cp out com.example.salesadvisor.SalesAdvisorCli
-java -Dstdout.encoding=UTF-8 -cp out com.example.salesadvisor.SalesAdvisorCli --approve
+java -Dstdout.encoding=UTF-8 -cp out com.example.salesai.SalesAiCli
+java -Dstdout.encoding=UTF-8 -cp out com.example.salesai.SalesAiCli --approve
 ```
 
 If you re-run the CLI you will see the same content with refreshed audit timestamps. Drafts are in English in the MVP; localisation to the customer's preferred language (here `zh-TW`) is part of Phase 4 in [`../docs/integration-plan.md`](../docs/integration-plan.md).
@@ -16,7 +16,7 @@ If you re-run the CLI you will see the same content with refreshed audit timesta
 Result: **drafts BLOCKED** because the risk policy returned `REQUIRES_MANAGER_APPROVAL`.
 
 ```
-=== Customer Email Sales Advisor — Report ===
+=== Sales AI — Report ===
 !! DRAFTS ARE BLOCKED — manager approval required before this reply can leave the building !!
 
 Customer Context
