@@ -1,0 +1,31 @@
+{
+  "threadId": "THR-90188",
+  "subject": "Order SO-2026-0231 delay + firmware issue — refund expected",
+  "customerEmail": "wm.chen@lumora-robotics.example",
+  "messages": [
+    {
+      "messageId": "MSG-1",
+      "from": "wm.chen@lumora-robotics.example",
+      "to": ["kelly.wu@our-company.example"],
+      "sentAt": "2026-05-02T09:14:00+08:00",
+      "direction": "INBOUND",
+      "body": "Kelly, this is the second time SO-2026-0231 has been pushed back. Our line is idle and procurement is asking for a written explanation. We also still see the vision module misalignment after the 4.2 firmware update (ticket SUP-7781). Frankly we are evaluating alternative vendors. We expect a partial refund or credit and a clear recovery plan by end of week."
+    },
+    {
+      "messageId": "MSG-2",
+      "from": "kelly.wu@our-company.example",
+      "to": ["wm.chen@lumora-robotics.example"],
+      "sentAt": "2026-05-02T11:02:00+08:00",
+      "direction": "OUTBOUND",
+      "body": "Wei-Ming, thank you for the direct feedback. I'm pulling logistics and engineering into the same room today and will come back with a recovery plan. I hear the urgency."
+    },
+    {
+      "messageId": "MSG-3",
+      "from": "wm.chen@lumora-robotics.example",
+      "to": ["kelly.wu@our-company.example"],
+      "sentAt": "2026-05-06T08:41:00+08:00",
+      "direction": "INBOUND",
+      "body": "Kelly, four days, no plan. Our CTO is now in the loop and is asking about the renewal in August. Please confirm by tomorrow: (1) revised delivery date, (2) refund or credit amount, (3) firmware fix ETA. Otherwise we will pause the renewal discussion."
+    }
+  ]
+}

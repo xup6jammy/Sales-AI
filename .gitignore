@@ -1,0 +1,29 @@
+# Build output
+out/
+build/
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs / local notes
+*.log
+notes-local/
+.env
+.env.local
