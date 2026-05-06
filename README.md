@@ -28,6 +28,12 @@
 - It is not a chatbot. It is context-grounded by design. Refunds, legal language, contract concessions, exceptional discounts, cancellation talk, and churn signals on VIP accounts force a hard manager-approval gate that **blocks the drafts**.
 - Run it in 60 seconds with the stock JDK, no dependencies, no credentials, no network &mdash; see [Run it](#run-it-in-60-seconds).
 
+## Vision
+
+The long-term goal of Sales AI is to **fully automate a company's sales function** &mdash; to let an AI work like a senior account manager who never clocks out: a copilot that reads customer email 24/7, understands the commercial context, evaluates the risk, proposes deals that are good for both sides, and only escalates the small set of edge cases that genuinely need a human's signature.
+
+Today we ship a context-first MVP with a hard manager-approval gate. Tomorrow that gate stays &mdash; but it triggers only on the genuinely sensitive cases (refunds, contract concessions, churn signals on VIP accounts), while the routine 80% runs autonomously, end to end. The roadmap below is the path from here to there.
+
 ## What makes this different
 
 | | What it brings | Why it matters |
@@ -400,6 +406,21 @@ Claude will follow the eleven-step workflow in the Skill, call the bundled Java 
 | [`mcp-server/README.md`](mcp-server/README.md) | How to compile, seed, and wire the MCP server into Claude Code. |
 | [`samples/advisor-output.md`](samples/advisor-output.md) | Both runs (default + `--approve`) verbatim. |
 | [`skills/sales-ai/SKILL.md`](skills/sales-ai/SKILL.md) | The agent definition. The actual product. |
+
+## Build this with us
+
+If you want to help shape Sales AI from a GitHub demo into a real product &mdash; not just star and move on &mdash; get in touch.
+
+I'm looking for:
+
+- **B2B salespeople / account managers** who feel the daily pain of email + CRM + escalations and want to test-drive the copilot on their own workflows.
+- **Java engineers** interested in productionising AI agents for enterprise environments (banking, insurance, manufacturing, ERP &mdash; the places where Java is already the lingua franca).
+- **Investors and founding partners** who believe sales automation is the next wave and want to back the Java-first, audit-by-default approach.
+- **Design partners** willing to pilot the agent inside their own sales team and shape the roadmap with real customer data.
+
+📩 **a0925281767s@gmail.com**
+
+Tell me which bucket you're in, what kind of customers you sell to, and what would make this useful for you. The fastest path from "interesting demo" to "shipping product" is to build it with the people who will actually use it.
 
 ## Contributing
 
