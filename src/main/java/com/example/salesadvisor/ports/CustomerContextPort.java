@@ -1,0 +1,13 @@
+package com.example.salesadvisor.ports;
+
+import com.example.salesadvisor.domain.CustomerProfile;
+
+import java.util.Optional;
+
+/**
+ * Port for resolving an email address to a customer profile. Real
+ * implementations would call into a CRM; the MVP uses a JSON file.
+ */
+public interface CustomerContextPort {
+    Optional<CustomerProfile> findByEmail(String email);
+}
