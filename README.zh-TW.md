@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/hero.svg" alt="Customer Email Sales Advisor — context first, never auto-sends" />
+  <img src="docs/assets/hero.svg" alt="Sales AI — context first, never auto-sends" />
 </p>
 
 <p align="center">
@@ -32,7 +32,7 @@
 
 | | 它帶來什麼 | 為何重要 |
 |---|---|---|
-| **Skill 才是 agent 本體** | 面向使用者的 agent 寫在 [`SKILL.md`](skills/customer-email-sales-advisor/SKILL.md)，而不是程式碼裡。Java MVP 只是引擎。 | 引擎可以分階段抽換（Java CLI &rarr; Gmail MCP &rarr; CRM MCP），完全不影響 Claude Code 呼叫它的方式。 |
+| **Skill 才是 agent 本體** | 面向使用者的 agent 寫在 [`SKILL.md`](skills/sales-ai/SKILL.md)，而不是程式碼裡。Java MVP 只是引擎。 | 引擎可以分階段抽換（Java CLI &rarr; Gmail MCP &rarr; CRM MCP），完全不影響 Claude Code 呼叫它的方式。 |
 | **硬性安全門檻** | 退款／法務／合約／折扣／流失訊號會強制觸發 `REQUIRES_MANAGER_APPROVAL`，並**封鎖草稿**。 | 其他 agent 範例靠模型「自己乖一點」，這個專案則是建置產物中根本沒有 SMTP 程式碼，連意外寄信都做不到。 |
 | **以脈絡為本，而非以提示為本** | 客戶檔案、合約、付款、工單、客戶經理筆記都會在模型讀到郵件**之前**載入。 | 資深客戶經理是在腦中完成這件事，LLM 則需要把這套流程明確寫下來。 |
 | **天生可稽核** | 每一次 port 呼叫都會寫一行稽核紀錄，CLI 會把這些紀錄列在每份報告的最下方。 | 若報告中的判斷看起來不對勁，可以從報告往回追到原始輸入。 |
@@ -49,15 +49,16 @@ flowchart TD
     cc -->|讀取| skill["<b>SKILL.md</b><br/>11 步工作流程<br/>安全規則<br/>輸出格式"]
     skill -->|編排| tools(["工具層<br/><i>可逐階段替換</i>"])
 
-    tools ==> mvp["<b>MVP — 本 repo</b><br/>Java 21 CLI<br/>mock adapters<br/>主控台稽核"]
+    tools ==> mvp["<b>引擎 — 本 repo</b><br/>Java 21 CLI<br/>JSON 或 JDBC 來源<br/>主控台稽核"]
+    tools ==> mcp["<b>SQL MCP server — 本 repo</b><br/>4 個 whitelisted 工具<br/>SQLite / MySQL / Postgres<br/>JSON-RPC over stdio"]
     tools -.->|Phase 2| email["Gmail MCP<br/>Outlook MCP"]
-    tools -.->|Phase 3| crm["CRM MCP<br/>Text2SQL"]
+    tools -.->|Phase 3b| crm["CRM MCP<br/>Salesforce / HubSpot<br/>Text2SQL"]
     tools -.->|Phase 4| llm["Agents-Flex Skill<br/>Claude / Bedrock / 本地 LLM"]
     tools -.->|Phase 5| approve["Slack 核准 bot"]
     tools -.->|Phase 6| rag["RAG 知識庫"]
 ```
 
-同一份 `SKILL.md` 在每個階段都通用。今天它呼叫本 repo 的 Java CLI，明天就會改呼叫 Gmail/Outlook MCP 與 CRM MCP。**11 步工作流程與安全規則在不同階段之間不會改變**——只有 port 背後的實作會被替換。這正是整個設計的重點。
+同一份 `SKILL.md` 在每個階段都通用。粗實線是這個 repo 今天就交付的：Java 引擎、以及一個帶 4 個 whitelisted 查詢工具的 SQL MCP server。虛線是未來會替換的部分——Gmail / Outlook MCP、真實 CRM、撰寫稿背後的 LLM。**11 步工作流程與安全規則在不同階段之間不會改變**——只有 port 背後的實作會被替換。這正是整個設計的重點。
 
 正因如此，這個專案才有研讀價值，而不只是 demo：你今天讀到的引擎，正是未來由 MCP 支撐的正式部署將會逐 port 替換掉的引擎。完整的遷移地圖請見 [`docs/integration-plan.md`](docs/integration-plan.md)。
 
@@ -125,16 +126,16 @@ flowchart LR
     ok --> ready
 ```
 
-退款／法務／合約／取消相關用語屬於**硬性中止**，不論客戶等級或語氣。模型沒有覆寫這道門檻的權限——這條規則寫在 [`risk/RiskRules.java`](src/main/java/com/example/salesadvisor/risk/RiskRules.java)，是審查者第一個會讀到的東西。完整政策請見 [`docs/safety-rules.md`](docs/safety-rules.md)。
+退款／法務／合約／取消相關用語屬於**硬性中止**，不論客戶等級或語氣。模型沒有覆寫這道門檻的權限——這條規則寫在 [`risk/RiskRules.java`](src/main/java/com/example/salesai/risk/RiskRules.java)，是審查者第一個會讀到的東西。完整政策請見 [`docs/safety-rules.md`](docs/safety-rules.md)。
 
 ## 範例輸出
 
 預設示範附了一個具代表性的案例：陳偉銘，Lumora Robotics Co., Ltd.（一家有逾期付款的 VIP 客戶）的採購主管，正在針對一筆延誤的訂單要求部分退款與額度補償，八月的續約案也因此岌岌可危。
 
-下面這段是 `java -cp out com.example.salesadvisor.SalesAdvisorCli` 配上預設 sample 的**真實 stdout**——不是截圖，也不是手動編修的假輸出。你看到的所有內容都由 [`app/AdvisorWorkflow.java`](src/main/java/com/example/salesadvisor/app/AdvisorWorkflow.java) 中的決定性工作流程產出，並由 [`app/AdvisorReportRenderer.java`](src/main/java/com/example/salesadvisor/app/AdvisorReportRenderer.java) 渲染。完整逐字稿也存放於 [`samples/advisor-output.md`](samples/advisor-output.md)。
+下面這段是 `java -cp out com.example.salesai.SalesAiCli` 配上預設 sample 的**真實 stdout**——不是截圖，也不是手動編修的假輸出。你看到的所有內容都由 [`app/AdvisorWorkflow.java`](src/main/java/com/example/salesai/app/AdvisorWorkflow.java) 中的決定性工作流程產出，並由 [`app/AdvisorReportRenderer.java`](src/main/java/com/example/salesai/app/AdvisorReportRenderer.java) 渲染。完整逐字稿也存放於 [`samples/advisor-output.md`](samples/advisor-output.md)。
 
 ```
-=== Customer Email Sales Advisor — Report ===
+=== Sales AI — Report ===
 !! DRAFTS ARE BLOCKED — manager approval required before this reply can leave the building !!
 
 Customer Context
@@ -259,7 +260,7 @@ Audit Summary
 
 ```powershell
 javac -d out (Get-ChildItem -Recurse src/main/java/*.java | %{$_.FullName})
-java -Dstdout.encoding=UTF-8 -cp out com.example.salesadvisor.SalesAdvisorCli
+java -Dstdout.encoding=UTF-8 -cp out com.example.salesai.SalesAiCli
 ```
 
 > 在 Windows 上，`-Dstdout.encoding=UTF-8` 可確保即便主控台代碼頁不是 65001，全形破折號與中文也能正確顯示。若已執行過 `chcp 65001`，可省略此 flag。
@@ -268,7 +269,7 @@ java -Dstdout.encoding=UTF-8 -cp out com.example.salesadvisor.SalesAdvisorCli
 
 ```bash
 find src/main/java -name '*.java' | xargs javac -d out
-java -cp out com.example.salesadvisor.SalesAdvisorCli
+java -cp out com.example.salesai.SalesAiCli
 ```
 
 CLI 接受少量 flag，全部選填；預設指向預載的 sample。
@@ -278,6 +279,54 @@ CLI 接受少量 flag，全部選填；預設指向預載的 sample。
 | `--customer-profile <path>` | 客戶檔案 JSON 的路徑。預設為 `samples/customer-profile.json`。 |
 | `--email-thread <path>` | 郵件串 JSON 的路徑。預設為 `samples/email-thread.json`。 |
 | `--approve` | 將報告標記為「主管已核准」。會多寫一行稽核紀錄，並解除草稿封鎖。**不會**寄信。 |
+| `--db <jdbc-url>` | 改從 JDBC 資料庫讀取客戶檔案，不再讀 JSON。可搭配 `--db-user` / `--db-password`。需要同時指定 `--email`。 |
+
+## Phase 2 預覽：SQL MCP Server
+
+本 repo 也附了一個可選用的 MCP server，把同一批客戶資料以**經過白名單把關的 SQL 工具**形式暴露給 Claude Code（或其他 MCP 客戶端）直接呼叫。JSON-RPC 2.0 over stdin/stdout、4 個工具，沒有任意 SQL 介面。
+
+```
+┌──────────────┐  stdio JSON-RPC  ┌──────────────────────┐  JDBC  ┌──────────┐
+│ Claude Code  │ ───────────────▶ │ SalesMcpServer       │ ─────▶ │ SQLite / │
+│ (即 skill)   │ ◀─────────────── │  4 個 whitelisted 工具│        │ MySQL /  │
+└──────────────┘                  └──────────────────────┘        │ Postgres │
+                                                                   └──────────┘
+```
+
+| MCP 工具 | 功能 | 背後 |
+|---|---|---|
+| `customer.findByEmail` | 以 primary email 找一位客戶（不分大小寫，精確比對） | 一支 prepared `SELECT` |
+| `customer.findById` | 以客戶 id（如 `CUST-1042`）找一位客戶 | 一支 prepared `SELECT` |
+| `customer.listOrders` | 列出某客戶最近訂單，最多 50 筆 | 一支 prepared `SELECT` |
+| `customer.listOpenTickets` | 列出某客戶開啟中的工單 | 一支 prepared `SELECT` |
+
+**這裡沒有 `runSql(query)` 工具，未來也不會有。** 白名單就是 [`SKILL.md`](skills/sales-ai/SKILL.md) 裡「scoped reads」承諾的程式碼層強制執行。客戶來信夾帶的 prompt injection 無法擴張 agent 的資料存取——新增工具必須走改程式碼這條路。
+
+### 90 秒示範（SQLite，零 infra）
+
+```powershell
+# 1. 把 SQLite JDBC driver 下載到 mcp-server/lib/
+Invoke-WebRequest `
+  -Uri 'https://repo1.maven.org/maven2/org/xerial/sqlite-jdbc/3.42.0.1/sqlite-jdbc-3.42.0.1.jar' `
+  -OutFile 'mcp-server/lib/sqlite-jdbc-3.42.0.1.jar'
+
+# 2. 編譯 MCP server
+$src = Get-ChildItem -Recurse mcp-server/src/main/java -Filter *.java | %{ $_.FullName }
+javac -d mcp-server/out -Xlint:all $src
+
+# 3. 種一份 demo SQLite DB（用同一個 Lumora Robotics 情境）
+java -cp 'mcp-server/lib/sqlite-jdbc-3.42.0.1.jar;mcp-server/out' `
+     com.example.salesai.mcp.SeedData
+
+# 4. 重新跑引擎，這次指向 SQLite DB
+java -Dstdout.encoding=UTF-8 `
+     -cp 'out;mcp-server/lib/sqlite-jdbc-3.42.0.1.jar' `
+     com.example.salesai.SalesAiCli `
+     --db jdbc:sqlite:mcp-server/demo.db `
+     --email wm.chen@lumora-robotics.example
+```
+
+同一份報告、同一個風險判斷、同樣被封鎖的草稿——這次資料來自真實的 `SELECT` 查詢。要把 MCP server 接到 Claude Code（讓 LLM 直接呼叫工具，而不只是引擎），請見 [`mcp-server/README.md`](mcp-server/README.md)。設計理由——為何走白名單、為何用 stdio、為何要自己出一個 server——請見 [`docs/mcp-server.md`](docs/mcp-server.md)。
 
 ## 為什麼這不是聊天機器人
 
@@ -309,7 +358,8 @@ CLI 接受少量 flag，全部選填；預設指向預載的 sample。
 
 - [x] **Phase 1 &mdash; MVP。** Mock adapters、決定性 classifier、主控台稽核。本 repo。
 - [ ] **Phase 2 &mdash; 真實郵件。** 將 `MockEmailThreadAdapter` 換成 Gmail MCP / Outlook MCP，讀取仍然限縮在單一客戶範圍。
-- [ ] **Phase 3 &mdash; 真實 CRM。** 將 `MockCustomerContextAdapter` 換成 CRM MCP 與客戶 DB 上的 Text2SQL。
+- [x] **Phase 3a &mdash; 真實資料庫。** `JdbcCustomerContextAdapter` 加上一個帶 4 個 whitelisted 查詢工具的 SQL MCP server。SQLite 作 demo，MySQL / Postgres schema 也已附上。詳見 [`mcp-server/`](mcp-server/) 與 [`docs/mcp-server.md`](docs/mcp-server.md)。
+- [ ] **Phase 3b &mdash; 生產用 CRM。** 等 Text2SQL 進入範圍時，把同一個 JDBC adapter 與同一組 MCP 工具指向真實 CRM（Salesforce、HubSpot）。
 - [ ] **Phase 4 &mdash; 真實 LLM 草稿。** 將 `TemplateReplyDraftAdapter` 換成呼叫 Claude / Bedrock / 本地 LLM 的 Agents-Flex Skill，並對穩定的前綴啟用 prompt caching。
 - [ ] **Phase 5 &mdash; 核准路由。** 將 `ManualApprovalAdapter` 換成 Slack 核准 bot 或票務系統整合。
 - [ ] **Phase 6 &mdash; 知識庫 / RAG。** 在新的 port 後面接上歷史成交／流失劇本的向量資料庫。
@@ -330,7 +380,7 @@ CLI 接受少量 flag，全部選填；預設指向預載的 sample。
 
 ## 當作 Claude Code skill 使用
 
-agent 定義位於 [`skills/customer-email-sales-advisor/SKILL.md`](skills/customer-email-sales-advisor/SKILL.md)。將 `skills/customer-email-sales-advisor/` 整個資料夾放進你的 Claude Code skills 目錄（或使用專案內的版本），然後可以這樣對 Claude 說：
+agent 定義位於 [`skills/sales-ai/SKILL.md`](skills/sales-ai/SKILL.md)。將 `skills/sales-ai/` 整個資料夾放進你的 Claude Code skills 目錄（或使用專案內的版本），然後可以這樣對 Claude 說：
 
 - "幫我看一下王經理那封信怎麼回。"
 - "Take a look at the Lumora thread &mdash; Wei-Ming is asking for a refund."
@@ -346,8 +396,10 @@ Claude 會遵循 Skill 中的十一步工作流程，把預載的 Java CLI 當�
 | [`docs/safety-rules.md`](docs/safety-rules.md) | 每一條紅線，附上**為什麼**與**如何強制執行**。 |
 | [`docs/integration-plan.md`](docs/integration-plan.md) | 朝向 MCP / Agents-Flex / Spring Boot 的逐階段遷移路線；會與不會申請的 OAuth 範圍。 |
 | [`docs/borrowed-patterns.md`](docs/borrowed-patterns.md) | 逐專案拆解採用了哪些模式，又明確沒有複製哪些原始碼。 |
+| [`docs/mcp-server.md`](docs/mcp-server.md) | SQL MCP server 的設計理由：為何走白名單、為何用 stdio、為何自己出一個。 |
+| [`mcp-server/README.md`](mcp-server/README.md) | 如何編譯、種資料、把 MCP server 接到 Claude Code。 |
 | [`samples/advisor-output.md`](samples/advisor-output.md) | 兩種執行（預設 + `--approve`）的逐字輸出。 |
-| [`skills/customer-email-sales-advisor/SKILL.md`](skills/customer-email-sales-advisor/SKILL.md) | agent 定義，也是真正的產品。 |
+| [`skills/sales-ai/SKILL.md`](skills/sales-ai/SKILL.md) | agent 定義，也是真正的產品。 |
 
 ## 貢獻
 

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/hero.svg" alt="Customer Email Sales Advisor — context first, never auto-sends" />
+  <img src="docs/assets/hero.svg" alt="Sales AI — context first, never auto-sends" />
 </p>
 
 <p align="center">
@@ -32,7 +32,7 @@
 
 | | 무엇을 제공하는가 | 왜 중요한가 |
 |---|---|---|
-| **Skill 자체가 에이전트** | 사용자 대면 에이전트는 코드가 아니라 [`SKILL.md`](skills/customer-email-sales-advisor/SKILL.md) 안에 있습니다. Java MVP는 단지 엔진입니다. | 엔진을 단계별로 교체(Java CLI &rarr; Gmail MCP &rarr; CRM MCP)하더라도 Claude Code가 호출하는 방식은 바뀌지 않습니다. |
+| **Skill 자체가 에이전트** | 사용자 대면 에이전트는 코드가 아니라 [`SKILL.md`](skills/sales-ai/SKILL.md) 안에 있습니다. Java MVP는 단지 엔진입니다. | 엔진을 단계별로 교체(Java CLI &rarr; Gmail MCP &rarr; CRM MCP)하더라도 Claude Code가 호출하는 방식은 바뀌지 않습니다. |
 | **하드한 안전 게이트** | 환불 / 법무 / 계약 / 할인 / 이탈 신호는 `REQUIRES_MANAGER_APPROVAL`을 강제하고 **드래프트를 차단**합니다. | 다른 에이전트 데모는 모델이 "얌전히 굴기"를 기대하지만, 본 프로젝트의 빌드 산출물에는 SMTP 코드가 아예 없습니다. 사고로도 메일을 보낼 수 없습니다. |
 | **프롬프트 우선이 아닌 컨텍스트 우선** | 고객 프로파일, 계약, 결제, 티켓, AM 메모는 모델이 이메일을 보기 **전에** 적재됩니다. | 시니어 AM은 이를 머릿속에서 합니다. LLM에게는 명시적으로 적어 주어야 합니다. |
 | **구조적으로 감사 가능** | 모든 포트 호출은 한 줄의 감사 로그를 남기고, CLI는 그 로그를 모든 리포트 하단에 출력합니다. | 결정이 어색해 보인다면 리포트에서 입력으로 거꾸로 따라 읽으면 됩니다. |
@@ -49,15 +49,16 @@ flowchart TD
     cc -->|읽기| skill["<b>SKILL.md</b><br/>11단계 워크플로<br/>안전 규칙<br/>출력 포맷"]
     skill -->|오케스트레이션| tools(["툴 레이어<br/><i>단계별 교체 가능</i>"])
 
-    tools ==> mvp["<b>MVP — 본 리포지토리</b><br/>Java 21 CLI<br/>목 어댑터<br/>콘솔 감사"]
+    tools ==> mvp["<b>엔진 — 본 리포지토리</b><br/>Java 21 CLI<br/>JSON 또는 JDBC 소스<br/>콘솔 감사"]
+    tools ==> mcp["<b>SQL MCP server — 본 리포지토리</b><br/>4개의 whitelisted 도구<br/>SQLite / MySQL / Postgres<br/>JSON-RPC over stdio"]
     tools -.->|Phase 2| email["Gmail MCP<br/>Outlook MCP"]
-    tools -.->|Phase 3| crm["CRM MCP<br/>Text2SQL"]
+    tools -.->|Phase 3b| crm["CRM MCP<br/>Salesforce / HubSpot<br/>Text2SQL"]
     tools -.->|Phase 4| llm["Agents-Flex Skill<br/>Claude / Bedrock / 로컬 LLM"]
     tools -.->|Phase 5| approve["Slack 승인 봇"]
     tools -.->|Phase 6| rag["RAG 지식 베이스"]
 ```
 
-같은 `SKILL.md`가 모든 단계에서 동작합니다. 오늘은 본 리포지토리의 Java CLI를 호출하고, 내일은 Gmail/Outlook MCP와 CRM MCP를 호출합니다. **11단계 워크플로와 안전 규칙은 단계 사이에 변하지 않습니다**&mdash;&mdash;바뀌는 것은 포트 뒤의 구현뿐입니다. 그것이 이 설계의 핵심입니다.
+같은 `SKILL.md`가 모든 단계에서 동작합니다. 굵은 실선은 오늘 이 리포지토리에서 출시되는 것 — Java 엔진과 4개의 whitelisted 쿼리 도구를 갖춘 SQL MCP server입니다. 점선은 향후 교체될 부분 — Gmail / Outlook MCP, 실제 CRM, 드래프트 포트 뒤의 LLM. **11단계 워크플로와 안전 규칙은 단계 사이에 변하지 않습니다**&mdash;&mdash;바뀌는 것은 포트 뒤의 구현뿐입니다. 그것이 이 설계의 핵심입니다.
 
 이 점이 본 프로젝트를 단순한 데모가 아니라 학습용 자료로 유용하게 만듭니다. 오늘 읽고 있는 이 엔진이, 결국 MCP 기반 프로덕션 배포가 포트 단위로 교체해 나갈 바로 그 엔진입니다. 전체 마이그레이션 지도는 [`docs/integration-plan.md`](docs/integration-plan.md)에 있습니다.
 
@@ -125,16 +126,16 @@ flowchart LR
     ok --> ready
 ```
 
-환불 / 법무 / 계약 / 해지 표현은 고객 등급이나 톤과 무관하게 **하드 스톱**입니다. 모델은 이 게이트를 우회할 수단이 없습니다&mdash;&mdash;이 규칙은 [`risk/RiskRules.java`](src/main/java/com/example/salesadvisor/risk/RiskRules.java)에 있으며, 리뷰어가 가장 먼저 읽게 되는 위치에 두었습니다. 전체 정책은 [`docs/safety-rules.md`](docs/safety-rules.md)에 있습니다.
+환불 / 법무 / 계약 / 해지 표현은 고객 등급이나 톤과 무관하게 **하드 스톱**입니다. 모델은 이 게이트를 우회할 수단이 없습니다&mdash;&mdash;이 규칙은 [`risk/RiskRules.java`](src/main/java/com/example/salesai/risk/RiskRules.java)에 있으며, 리뷰어가 가장 먼저 읽게 되는 위치에 두었습니다. 전체 정책은 [`docs/safety-rules.md`](docs/safety-rules.md)에 있습니다.
 
 ## 샘플 출력
 
 번들 데모에는 대표적인 케이스 한 건이 들어 있습니다. Lumora Robotics Co., Ltd.(결제가 연체된 VIP 고객)의 구매 책임자인 Wei-Ming Chen 씨가, 지연된 주문에 대한 부분 환불과 크레딧을 요구하고 있고, 8월 갱신도 이제 흔들리는 상황입니다.
 
-아래 블록은 번들 샘플에 대해 `java -cp out com.example.salesadvisor.SalesAdvisorCli`를 실행한 **실제 stdout**입니다&mdash;&mdash;스크린샷도, 손으로 다듬은 목업도 아닙니다. 보이는 모든 것은 [`app/AdvisorWorkflow.java`](src/main/java/com/example/salesadvisor/app/AdvisorWorkflow.java)의 결정적 워크플로가 만들고 [`app/AdvisorReportRenderer.java`](src/main/java/com/example/salesadvisor/app/AdvisorReportRenderer.java)가 렌더링한 것입니다. 전체 트랜스크립트는 [`samples/advisor-output.md`](samples/advisor-output.md)에도 있습니다.
+아래 블록은 번들 샘플에 대해 `java -cp out com.example.salesai.SalesAiCli`를 실행한 **실제 stdout**입니다&mdash;&mdash;스크린샷도, 손으로 다듬은 목업도 아닙니다. 보이는 모든 것은 [`app/AdvisorWorkflow.java`](src/main/java/com/example/salesai/app/AdvisorWorkflow.java)의 결정적 워크플로가 만들고 [`app/AdvisorReportRenderer.java`](src/main/java/com/example/salesai/app/AdvisorReportRenderer.java)가 렌더링한 것입니다. 전체 트랜스크립트는 [`samples/advisor-output.md`](samples/advisor-output.md)에도 있습니다.
 
 ```
-=== Customer Email Sales Advisor — Report ===
+=== Sales AI — Report ===
 !! DRAFTS ARE BLOCKED — manager approval required before this reply can leave the building !!
 
 Customer Context
@@ -259,7 +260,7 @@ Audit Summary
 
 ```powershell
 javac -d out (Get-ChildItem -Recurse src/main/java/*.java | %{$_.FullName})
-java -Dstdout.encoding=UTF-8 -cp out com.example.salesadvisor.SalesAdvisorCli
+java -Dstdout.encoding=UTF-8 -cp out com.example.salesai.SalesAiCli
 ```
 
 > Windows에서는 콘솔 코드 페이지가 65001이 아니어도 em 대시와 한자/한글이 올바르게 렌더링되도록 `-Dstdout.encoding=UTF-8` 플래그를 사용합니다. 이미 `chcp 65001`을 실행했다면 이 플래그는 생략해도 됩니다.
@@ -268,7 +269,7 @@ java -Dstdout.encoding=UTF-8 -cp out com.example.salesadvisor.SalesAdvisorCli
 
 ```bash
 find src/main/java -name '*.java' | xargs javac -d out
-java -cp out com.example.salesadvisor.SalesAdvisorCli
+java -cp out com.example.salesai.SalesAiCli
 ```
 
 CLI는 소수의 플래그만 받습니다. 모두 선택 사항이며, 기본값은 번들 샘플을 가리킵니다.
@@ -278,6 +279,54 @@ CLI는 소수의 플래그만 받습니다. 모두 선택 사항이며, 기본�
 | `--customer-profile <path>` | 고객 프로파일 JSON 경로. 기본값은 `samples/customer-profile.json`. |
 | `--email-thread <path>` | 이메일 스레드 JSON 경로. 기본값은 `samples/email-thread.json`. |
 | `--approve` | 리포트를 매니저 승인된 것으로 표시합니다. 감사 행을 한 줄 추가하고 드래프트 표시를 해제합니다. 메일을 보내지는 않습니다. |
+| `--db <jdbc-url>` | JSON 대신 JDBC 데이터베이스에서 고객 프로파일을 읽어옵니다. `--db-user` / `--db-password`와 함께 사용. `--email` 지정 필수. |
+
+## Phase 2 미리보기: SQL MCP Server
+
+이 리포지토리에는 동일한 고객 데이터를 **whitelisted SQL 도구**로 Claude Code(또는 임의의 MCP 클라이언트)가 직접 호출할 수 있도록 노출하는, 선택적인 MCP server도 포함되어 있습니다. JSON-RPC 2.0 over stdin/stdout, 4개 도구, 일반 SQL 표면 없음.
+
+```
+┌──────────────┐  stdio JSON-RPC  ┌──────────────────────┐  JDBC  ┌──────────┐
+│ Claude Code  │ ───────────────▶ │ SalesMcpServer       │ ─────▶ │ SQLite / │
+│ (skill)      │ ◀─────────────── │  4 whitelisted 도구   │        │ MySQL /  │
+└──────────────┘                  └──────────────────────┘        │ Postgres │
+                                                                   └──────────┘
+```
+
+| MCP 도구 | 역할 | 백엔드 |
+|---|---|---|
+| `customer.findByEmail` | 기본 이메일로 고객 1명 조회(대소문자 무시, 정확 매칭) | prepared `SELECT` 1개 |
+| `customer.findById` | 고객 id(예: `CUST-1042`)로 1명 조회 | prepared `SELECT` 1개 |
+| `customer.listOrders` | 한 고객의 최근 주문, 최대 50건 | prepared `SELECT` 1개 |
+| `customer.listOpenTickets` | 한 고객의 오픈된 지원 티켓 | prepared `SELECT` 1개 |
+
+**`runSql(query)` 같은 일반 도구는 없습니다. 앞으로도 추가하지 않습니다.** 이 화이트리스트가 [`SKILL.md`](skills/sales-ai/SKILL.md)의 "scoped reads" 약속을 코드 레벨에서 강제하는 경계입니다. 수신 이메일에 섞인 프롬프트 인젝션이 에이전트의 데이터 접근 범위를 넓힐 수 없습니다 — 도구를 추가하려면 코드 변경이 필요합니다.
+
+### 90초 데모 (SQLite, 인프라 불필요)
+
+```powershell
+# 1. SQLite JDBC 드라이버를 mcp-server/lib/에 다운로드
+Invoke-WebRequest `
+  -Uri 'https://repo1.maven.org/maven2/org/xerial/sqlite-jdbc/3.42.0.1/sqlite-jdbc-3.42.0.1.jar' `
+  -OutFile 'mcp-server/lib/sqlite-jdbc-3.42.0.1.jar'
+
+# 2. MCP server 컴파일
+$src = Get-ChildItem -Recurse mcp-server/src/main/java -Filter *.java | %{ $_.FullName }
+javac -d mcp-server/out -Xlint:all $src
+
+# 3. 데모용 SQLite DB에 같은 Lumora Robotics 시나리오를 시드
+java -cp 'mcp-server/lib/sqlite-jdbc-3.42.0.1.jar;mcp-server/out' `
+     com.example.salesai.mcp.SeedData
+
+# 4. 엔진을 SQLite DB로 다시 실행
+java -Dstdout.encoding=UTF-8 `
+     -cp 'out;mcp-server/lib/sqlite-jdbc-3.42.0.1.jar' `
+     com.example.salesai.SalesAiCli `
+     --db jdbc:sqlite:mcp-server/demo.db `
+     --email wm.chen@lumora-robotics.example
+```
+
+같은 리포트, 같은 리스크 결정, 같은 차단된 드래프트 — 이번에는 실제 `SELECT` 쿼리에서 나옵니다. MCP server를 Claude Code 자체에 연결해 LLM이 엔진이 아닌 도구를 직접 호출하게 하려면 [`mcp-server/README.md`](mcp-server/README.md)를 참고하세요. 설계 이유(왜 화이트리스트, 왜 stdio, 일반 DB MCP가 있는데 왜 자체 서버를 출시하는지)는 [`docs/mcp-server.md`](docs/mcp-server.md)에 있습니다.
 
 ## 이것이 챗봇이 아닌 이유
 
@@ -309,7 +358,8 @@ CLI는 소수의 플래그만 받습니다. 모두 선택 사항이며, 기본�
 
 - [x] **Phase 1 &mdash; MVP.** 목 어댑터, 결정적 분류기, 콘솔 감사. 본 리포지토리.
 - [ ] **Phase 2 &mdash; 실제 이메일.** `MockEmailThreadAdapter`를 Gmail MCP / Outlook MCP로 교체. 읽기는 여전히 고객 단위로 한정됩니다.
-- [ ] **Phase 3 &mdash; 실제 CRM.** `MockCustomerContextAdapter`를 CRM MCP와 고객 DB에 대한 Text2SQL로 교체.
+- [x] **Phase 3a &mdash; 실제 데이터베이스.** `JdbcCustomerContextAdapter`와 4개의 whitelisted 쿼리 도구를 갖춘 SQL MCP server. 데모는 SQLite, MySQL / Postgres 스키마도 동봉. 자세한 내용은 [`mcp-server/`](mcp-server/) 와 [`docs/mcp-server.md`](docs/mcp-server.md).
+- [ ] **Phase 3b &mdash; 프로덕션 CRM.** Text2SQL이 범위에 들어오면 동일한 JDBC 어댑터와 동일한 MCP 도구를 실제 CRM(Salesforce, HubSpot)에 연결.
 - [ ] **Phase 4 &mdash; 실제 LLM 드래프트.** `TemplateReplyDraftAdapter`를 Claude / Bedrock / 로컬 LLM을 호출하는 Agents-Flex Skill로 교체하고, 안정적인 프리앰블에 프롬프트 캐시를 적용.
 - [ ] **Phase 5 &mdash; 승인 라우팅.** `ManualApprovalAdapter`를 Slack 승인 봇 또는 티켓팅 시스템 연동으로 교체.
 - [ ] **Phase 6 &mdash; 지식 베이스 / RAG.** 과거 수주 / 실주 플레이북의 벡터 스토어를 새 포트 뒤에 연결.
@@ -330,7 +380,7 @@ CLI는 소수의 플래그만 받습니다. 모두 선택 사항이며, 기본�
 
 ## Claude Code skill로 사용하기
 
-에이전트 정의는 [`skills/customer-email-sales-advisor/SKILL.md`](skills/customer-email-sales-advisor/SKILL.md)에 있습니다. `skills/customer-email-sales-advisor/` 폴더를 Claude Code skills 디렉터리에 그대로 넣거나(또는 프로젝트 로컬 사본을 사용), Claude에게 다음과 같이 요청해 보세요.
+에이전트 정의는 [`skills/sales-ai/SKILL.md`](skills/sales-ai/SKILL.md)에 있습니다. `skills/sales-ai/` 폴더를 Claude Code skills 디렉터리에 그대로 넣거나(또는 프로젝트 로컬 사본을 사용), Claude에게 다음과 같이 요청해 보세요.
 
 - "幫我看一下王經理那封信怎麼回。"
 - "Take a look at the Lumora thread &mdash; Wei-Ming is asking for a refund."
@@ -347,8 +397,10 @@ Claude는 Skill의 11단계 워크플로를 따라가며, 툴 레이어로 번�
 | [`docs/safety-rules.md`](docs/safety-rules.md) | 모든 레드 라인과 각각의 *왜*, *어떻게 강제되는지*. |
 | [`docs/integration-plan.md`](docs/integration-plan.md) | MCP / Agents-Flex / Spring Boot로 향하는 단계별 마이그레이션. 요청할 OAuth 스코프와 요청하지 않을 스코프. |
 | [`docs/borrowed-patterns.md`](docs/borrowed-patterns.md) | 참고 프로젝트별로 채택한 패턴과 명시적으로 복사하지 않은 소스 코드의 분류. |
+| [`docs/mcp-server.md`](docs/mcp-server.md) | SQL MCP server 설계 이유: 왜 화이트리스트, 왜 stdio, 왜 자체 서버를 출시하는지. |
+| [`mcp-server/README.md`](mcp-server/README.md) | MCP server의 컴파일, 시드 투입, Claude Code 연결 절차. |
 | [`samples/advisor-output.md`](samples/advisor-output.md) | 기본 실행과 `--approve` 실행의 출력을 그대로 수록. |
-| [`skills/customer-email-sales-advisor/SKILL.md`](skills/customer-email-sales-advisor/SKILL.md) | 에이전트 정의. 사실상 본 프로덕트. |
+| [`skills/sales-ai/SKILL.md`](skills/sales-ai/SKILL.md) | 에이전트 정의. 사실상 본 프로덕트. |
 
 ## 기여
 

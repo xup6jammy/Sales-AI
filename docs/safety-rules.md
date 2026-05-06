@@ -1,6 +1,6 @@
 # Safety Rules
 
-These are the hard rules the Customer Email Sales Advisor lives by. Every rule below is enforced in code, not just in prose. If you can find a path through the codebase that violates one of them, that is a bug — see the closing note.
+These are the hard rules the Sales AI lives by. Every rule below is enforced in code, not just in prose. If you can find a path through the codebase that violates one of them, that is a bug — see the closing note.
 
 The rules apply to the MVP shipped in this repo and to every future phase described in [`integration-plan.md`](./integration-plan.md). Phase changes the implementation; phase does not change the rules.
 
