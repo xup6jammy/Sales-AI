@@ -27,3 +27,9 @@ desktop.ini
 notes-local/
 .env
 .env.local
+
+# MCP server local state
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
