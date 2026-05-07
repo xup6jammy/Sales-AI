@@ -92,8 +92,8 @@ The MCP server is a separate sub-project at [`mcp-server/`](../mcp-server). It s
 
 ```
 ┌──────────────┐  stdio JSON-RPC  ┌─────────────────────┐  JDBC  ┌──────────┐
-│ Claude Code  │ ───────────────▶ │ SalesMcpServer      │ ─────▶ │ SQLite / │
-│ (the skill)  │ ◀─────────────── │  4 whitelisted tools│        │ MySQL /  │
+│ LLM          │ ───────────────▶ │ SalesMcpServer      │ ─────▶ │ SQLite / │
+│ (MCP client) │ ◀─────────────── │  4 whitelisted tools│        │ MySQL /  │
 └──────────────┘                  └─────────────────────┘        │ Postgres │
                                                                   └──────────┘
 ```

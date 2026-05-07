@@ -81,7 +81,7 @@ GitHub 上で「Java 製 AI エージェント」は希少カテゴリ（公開�
 
 ```mermaid
 flowchart TD
-    user["セールスユーザー"] -->|"&quot;この顧客の対応を手伝って&quot;"| cc["Claude Code"]
+    user["セールスユーザー"] -->|"&quot;この顧客の対応を手伝って&quot;"| cc["大規模言語モデル"]
     cc -->|読み込む| skill["<b>SKILL.md</b><br/>11 ステップのワークフロー<br/>安全ルール<br/>出力フォーマット"]
     skill -->|オーケストレーション| tools(["ツール層<br/><i>フェーズごとに差し替え可</i>"])
 
@@ -323,8 +323,8 @@ CLI が受け取る flag はわずかです。すべて任意で、デフォル�
 
 ```
 ┌──────────────┐  stdio JSON-RPC  ┌──────────────────────┐  JDBC  ┌──────────┐
-│ Claude Code  │ ───────────────▶ │ SalesMcpServer       │ ─────▶ │ SQLite / │
-│ (skill)      │ ◀─────────────── │  4 つの whitelist ツール│        │ MySQL /  │
+│ LLM          │ ───────────────▶ │ SalesMcpServer       │ ─────▶ │ SQLite / │
+│ (MCP client) │ ◀─────────────── │  4 つの whitelist ツール│        │ MySQL /  │
 └──────────────┘                  └──────────────────────┘        │ Postgres │
                                                                    └──────────┘
 ```

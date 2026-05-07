@@ -81,7 +81,7 @@ GitHub에서 "Java로 작성된 AI 에이전트"는 희귀 카테고리입니다
 
 ```mermaid
 flowchart TD
-    user["세일즈 사용자"] -->|"&quot;이 고객 좀 도와줘&quot;"| cc["Claude Code"]
+    user["세일즈 사용자"] -->|"&quot;이 고객 좀 도와줘&quot;"| cc["대규모 언어 모델"]
     cc -->|읽기| skill["<b>SKILL.md</b><br/>11단계 워크플로<br/>안전 규칙<br/>출력 포맷"]
     skill -->|오케스트레이션| tools(["툴 레이어<br/><i>단계별 교체 가능</i>"])
 
@@ -323,8 +323,8 @@ CLI는 소수의 플래그만 받습니다. 모두 선택 사항이며, 기본�
 
 ```
 ┌──────────────┐  stdio JSON-RPC  ┌──────────────────────┐  JDBC  ┌──────────┐
-│ Claude Code  │ ───────────────▶ │ SalesMcpServer       │ ─────▶ │ SQLite / │
-│ (skill)      │ ◀─────────────── │  4 whitelisted 도구   │        │ MySQL /  │
+│ LLM          │ ───────────────▶ │ SalesMcpServer       │ ─────▶ │ SQLite / │
+│ (MCP client) │ ◀─────────────── │  4 whitelisted 도구   │        │ MySQL /  │
 └──────────────┘                  └──────────────────────┘        │ Postgres │
                                                                    └──────────┘
 ```
