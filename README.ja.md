@@ -15,7 +15,7 @@
   <img alt="Status: MVP" src="https://img.shields.io/badge/Status-MVP-3b82f6?style=flat-square" />
   <img alt="No dependencies" src="https://img.shields.io/badge/Dependencies-None-94a3b8?style=flat-square" />
   <img alt="MCP-ready" src="https://img.shields.io/badge/MCP-ready-f59e0b?style=flat-square" />
-  <img alt="Claude Code skill" src="https://img.shields.io/badge/Claude%20Code-skill-8b5cf6?style=flat-square" />
+  <img alt="Claude Skill" src="https://img.shields.io/badge/Claude%20Code-skill-8b5cf6?style=flat-square" />
 </p>
 
 <p align="center"><i>シニアアカウントマネージャーのように顧客のメールを読みこなす AI セールスコパイロット&mdash;&mdash;コンテキストが先、ドラフトは最後、送信ボタンには絶対に触れません。</i></p>
@@ -68,7 +68,7 @@ GitHub 上で「Java 製 AI エージェント」は希少カテゴリ（公開�
 
 | | 何を提供するか | なぜ重要か |
 |---|---|---|
-| **Skill こそがエージェント** | ユーザーに向き合うエージェント本体は [`SKILL.md`](skills/sales-ai/SKILL.md) にあり、コードの中にはありません。Java MVP は単なるエンジンです。 | エンジンをフェーズごとに差し替え（Java CLI &rarr; Gmail MCP &rarr; CRM MCP）しても、Claude Code からの呼び方は変わりません。 |
+| **Skill こそがエージェント** | ユーザーに向き合うエージェント本体は [`SKILL.md`](skills/sales-ai/SKILL.md) にあり、コードの中にはありません。Java MVP は単なるエンジンです。 | エンジンをフェーズごとに差し替え（Java CLI &rarr; Gmail MCP &rarr; CRM MCP）しても、お使いの LLM ホストからの呼び方は変わりません。 |
 | **ハードな安全ゲート** | 返金 / 法務 / 契約 / 値引き / 離反シグナルは `REQUIRES_MANAGER_APPROVAL` を強制し、**ドラフトをブロック**します。 | 他のエージェントデモはモデルの「お行儀」に頼りますが、本プロジェクトはビルド成果物に SMTP コードを一切含みません。事故ですらメールを送れません。 |
 | **プロンプトファーストではなくコンテキストファースト** | 顧客プロファイル、契約、入金、チケット、AM のメモは、モデルがメールを見る**前に**ロードされます。 | シニア AM は頭の中でこれをやっています。LLM にはそれを書き下す必要があります。 |
 | **構造的に監査可能** | すべてのポート呼び出しは監査ログを 1 行ずつ書き、CLI はそれをレポート末尾に出力します。 | 判断が誤って見えるなら、レポートから入力に向かって遡れます。 |
@@ -338,7 +338,7 @@ CLI が受け取る flag はわずかです。すべて任意で、デフォル�
 
 ## Phase 2 プレビュー：SQL MCP Server
 
-このリポジトリには、同じ顧客データを **whitelisted な SQL ツール**として Claude Code（や任意の MCP クライアント）が直接呼び出せる、オプショナルな MCP server も同梱しています。JSON-RPC 2.0 over stdin/stdout、4 ツール、汎用 SQL は提供しません。
+このリポジトリには、同じ顧客データを **whitelisted な SQL ツール**として任意の MCP 互換 LLM ホストが直接呼び出せる、オプショナルな MCP server も同梱しています。JSON-RPC 2.0 over stdin/stdout、4 ツール、汎用 SQL は提供しません。
 
 ```
 ┌──────────────┐  stdio JSON-RPC  ┌──────────────────────┐  JDBC  ┌──────────┐
@@ -381,7 +381,7 @@ java -Dstdout.encoding=UTF-8 `
      --email wm.chen@lumora-robotics.example
 ```
 
-同じレポート、同じリスク判断、同じブロックされたドラフト — 今度は実際の `SELECT` クエリが情報源です。MCP server を Claude Code 本体に接続する手順（LLM がエンジンではなく直接ツールを呼べるようにする）は [`mcp-server/README.md`](mcp-server/README.md) を参照してください。設計理由（なぜホワイトリスト、なぜ stdio、汎用 DB MCP があるのになぜ自前で出すのか）は [`docs/mcp-server.md`](docs/mcp-server.md) にあります。
+同じレポート、同じリスク判断、同じブロックされたドラフト — 今度は実際の `SELECT` クエリが情報源です。MCP server をお使いの MCP ホストに接続する手順（LLM がエンジンではなく直接ツールを呼べるようにする）は [`mcp-server/README.md`](mcp-server/README.md) を参照してください。設計理由（なぜホワイトリスト、なぜ stdio、汎用 DB MCP があるのになぜ自前で出すのか）は [`docs/mcp-server.md`](docs/mcp-server.md) にあります。
 
 ## なぜチャットボットではないのか
 
@@ -418,7 +418,7 @@ java -Dstdout.encoding=UTF-8 `
 - [x] **Phase 4 &mdash; 実 LLM ドラフト。** ✅ `--llm anthropic|openai|gemini` または `--llm openai-compatible` とローカルモデルで `TemplateReplyDraftAdapter` を置換し、安定したプリアンブルにプロンプトキャッシュを効かせる。
 - [ ] **Phase 5 &mdash; 承認ルーティング。** `ManualApprovalAdapter` を Slack 承認ボットまたはチケッティングシステム連携に置換。
 - [ ] **Phase 6 &mdash; ナレッジベース / RAG。** 過去の受注／失注プレイブックのベクトルストアを新しいポートの裏に差し込む。
-- [ ] **Phase 7 &mdash; Spring Boot サービス。** ワークフローを Spring Boot で包み、他の Claude Code skill から呼べる MCP サーバーとして公開する。
+- [ ] **Phase 7 &mdash; Spring Boot サービス。** ワークフローを Spring Boot で包み、Skill 形式に対応する他の LLM ホストから呼べる MCP サーバーとして公開する。
 
 各フェーズの詳細な形、それが導入する新たな安全考慮事項、そして意図的に**要求しない** OAuth スコープは [`docs/integration-plan.md`](docs/integration-plan.md) にまとめてあります。
 
@@ -433,16 +433,18 @@ java -Dstdout.encoding=UTF-8 `
 
 これらのプロジェクトのソースコードを vendor したりフォークしたりコピーしたりはしていません。プロジェクトごとに何を採用し、何を明示的に採用しなかったかの内訳は [`docs/borrowed-patterns.md`](docs/borrowed-patterns.md) にあります。
 
-## Claude Code の skill として使う
+## Skill として使う（任意の MCP ホストに対応）
 
-エージェント定義は [`skills/sales-ai/SKILL.md`](skills/sales-ai/SKILL.md) にあります。`skills/sales-ai/` フォルダーをそのまま Claude Code の skills ディレクトリに置く（あるいはプロジェクトローカルのものを使う）と、Claude にこんな依頼ができます。
+エージェント定義は [`skills/sales-ai/SKILL.md`](skills/sales-ai/SKILL.md) にあります。`skills/sales-ai/` フォルダーをそのままお使いの MCP ホストの skills ディレクトリに置く（あるいはプロジェクトローカルのものを使う）と、LLM にこんな依頼ができます。
 
 - "幫我看一下王經理那封信怎麼回。"
 - "Take a look at the Lumora thread &mdash; Wei-Ming is asking for a refund."
 - "Customer CUST-1042 just escalated. Walk me through it."
 - 「Lumora の Wei-Ming さんからのメール、どう返すか一緒に考えてもらえますか。」
 
-Claude は Skill に書かれた 11 ステップのワークフローに従い、ツール層として同梱の Java CLI を呼び出し、レポートを提示します。リスク判定が `REQUIRES_MANAGER_APPROVAL` なら、Claude はドラフトがブロックされていることを伝え、明示的な承認が出るまで止まります。
+LLM ホストは Skill に書かれた 11 ステップのワークフローに従い、ツール層として同梱の Java CLI を呼び出し、レポートを提示します。リスク判定が `REQUIRES_MANAGER_APPROVAL` なら、ドラフトがブロックされていることを伝え、明示的な承認が出るまで止まります。
+
+> **参照実装として [Claude Code](https://claude.ai/code) を MCP ホストとして検証しています。`SKILL.md` を読み取れる任意の MCP 互換 LLM エージェントランタイムで動作するはずです。**
 
 ## ドキュメント
 
@@ -453,7 +455,7 @@ Claude は Skill に書かれた 11 ステップのワークフローに従い�
 | [`docs/integration-plan.md`](docs/integration-plan.md) | MCP / Agents-Flex / Spring Boot に向けたフェーズごとの移行計画。要求する／しない OAuth スコープ。 |
 | [`docs/borrowed-patterns.md`](docs/borrowed-patterns.md) | 参考プロジェクトごとに採用したパターンと、明示的にコピーしなかったソースコードの内訳。 |
 | [`docs/mcp-server.md`](docs/mcp-server.md) | SQL MCP server の設計理由：なぜホワイトリスト、なぜ stdio、なぜ自前で出すのか。 |
-| [`mcp-server/README.md`](mcp-server/README.md) | MCP server のコンパイル、シード投入、Claude Code への接続手順。 |
+| [`mcp-server/README.md`](mcp-server/README.md) | MCP server のコンパイル、シード投入、お使いの MCP ホストへの接続手順。 |
 | [`samples/advisor-output.md`](samples/advisor-output.md) | デフォルト実行と `--approve` 付き実行の出力をそのまま収録。 |
 | [`skills/sales-ai/SKILL.md`](skills/sales-ai/SKILL.md) | エージェント定義。実質的なプロダクト本体。 |
 
