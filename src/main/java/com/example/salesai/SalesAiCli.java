@@ -33,6 +33,9 @@ import java.nio.file.Paths;
  *   <li>{@code --db-user <name>} / {@code --db-password <pw>} — credentials.</li>
  *   <li>{@code --email-mcp <provider>} — use a spawned MCP server (gmail/outlook).</li>
  *   <li>{@code --mcp-config <path>} — override the default mcp-config.json location.</li>
+ *   <li>{@code --llm <provider>} — pick LLM backend (template|anthropic|openai|openai-compatible|gemini).</li>
+ *   <li>{@code --llm-model <model-id>} — override provider default model.</li>
+ *   <li>{@code --llm-endpoint <url>} — only for openai-compatible (local LLM).</li>
  * </ul>
  *
  * <p>Exit codes: 0 on success, 2 on argument error, 3 if the customer
@@ -118,7 +121,64 @@ public final class SalesAiCli {
                     .McpEmailThreadAdapter(emailMcpClient, mapping);
         }
         RuleBasedRiskPolicyAdapter risk = new RuleBasedRiskPolicyAdapter();
-        TemplateReplyDraftAdapter drafts = new TemplateReplyDraftAdapter();
+
+        // LLM provider: --llm switches between the in-process template adapter
+        // and a real HTTP-based LlmClient (Anthropic/OpenAI/Gemini/local).
+        com.example.salesai.ports.ReplyDraftPort drafts;
+        String llmProvider = parsed.llmProvider == null ? "template" : parsed.llmProvider;
+        switch (llmProvider) {
+            case "template" -> {
+                drafts = new TemplateReplyDraftAdapter();
+            }
+            case "anthropic" -> {
+                String key = System.getenv("ANTHROPIC_API_KEY");
+                if (key == null || key.isBlank()) {
+                    System.err.println("--llm anthropic requires ANTHROPIC_API_KEY env var");
+                    if (emailMcpClient != null) emailMcpClient.close();
+                    System.exit(2);
+                    return;
+                }
+                var llm = new com.example.salesai.adapters.llm.AnthropicLlmClient(key);
+                drafts = new com.example.salesai.adapters.llm.LlmReplyDraftAdapter(
+                    llm, audit, key, "draft_reply");
+            }
+            case "openai", "openai-compatible" -> {
+                String key = System.getenv("OPENAI_API_KEY");
+                if ("openai".equals(llmProvider) && (key == null || key.isBlank())) {
+                    System.err.println("--llm openai requires OPENAI_API_KEY env var");
+                    if (emailMcpClient != null) emailMcpClient.close();
+                    System.exit(2);
+                    return;
+                }
+                if (key == null) key = "";
+                var llm = (parsed.llmEndpoint == null)
+                    ? new com.example.salesai.adapters.llm.OpenAiLlmClient(key)
+                    : new com.example.salesai.adapters.llm.OpenAiLlmClient(key, parsed.llmEndpoint);
+                drafts = new com.example.salesai.adapters.llm.LlmReplyDraftAdapter(
+                    llm, audit, key.isEmpty() ? null : key, "draft_reply");
+            }
+            case "gemini" -> {
+                String key = System.getenv("GEMINI_API_KEY");
+                if (key == null || key.isBlank()) {
+                    System.err.println("--llm gemini requires GEMINI_API_KEY env var");
+                    if (emailMcpClient != null) emailMcpClient.close();
+                    System.exit(2);
+                    return;
+                }
+                var llm = new com.example.salesai.adapters.llm.GeminiLlmClient(key);
+                drafts = new com.example.salesai.adapters.llm.LlmReplyDraftAdapter(
+                    llm, audit, key, "draft_reply");
+            }
+            default -> {
+                System.err.println("Unknown --llm provider: " + llmProvider);
+                if (emailMcpClient != null) emailMcpClient.close();
+                System.exit(2);
+                return;
+            }
+        }
+        // NOTE: --llm-model is parsed but not yet wired through (needs a 3-arg
+        // LlmClient constructor — follow-up task). The flag is accepted for forward-compat.
+
         NoopCrmAdapter crm = new NoopCrmAdapter(audit);
         ManualApprovalAdapter approvals = new ManualApprovalAdapter(audit);
 
@@ -171,6 +231,10 @@ public final class SalesAiCli {
                                                Provider name must match an entry in
                                                mcp-config.json (e.g., 'gmail').
                   --mcp-config <path>          Override default mcp-config.json location.
+                  --llm <provider>             template|anthropic|openai|openai-compatible|gemini
+                                               (default: template)
+                  --llm-model <model-id>       (currently parsed but uses provider default)
+                  --llm-endpoint <url>         (only with openai-compatible — for local LLM)
                 """;
     }
 
@@ -187,8 +251,11 @@ public final class SalesAiCli {
             String dbUrl,
             String dbUser,
             String dbPassword,
-            String emailMcp,                // NEW: gmail|outlook|null(default mock)
-            Path mcpConfigPath              // NEW
+            String emailMcp,                // gmail|outlook|null(default mock)
+            Path mcpConfigPath,
+            String llmProvider,             // "template"|"anthropic"|"openai"|"openai-compatible"|"gemini"
+            String llmModel,               // override defaultModel(), or null
+            String llmEndpoint             // OpenAI-compatible endpoint URL (local LLM), or null
     ) {
         static Args parse(String[] args) {
             boolean help = false;
@@ -201,6 +268,9 @@ public final class SalesAiCli {
             String dbPassword = null;
             String emailMcp = null;
             Path mcpConfigPath = null;
+            String llmProvider = null;
+            String llmModel = null;
+            String llmEndpoint = null;
             for (int i = 0; i < args.length; i++) {
                 String a = args[i];
                 switch (a) {
@@ -262,13 +332,32 @@ public final class SalesAiCli {
                         }
                         mcpConfigPath = Paths.get(args[++i]);
                     }
+                    case "--llm" -> {
+                        if (i + 1 >= args.length) {
+                            throw new IllegalArgumentException(
+                                    "--llm requires a provider (template|anthropic|openai|openai-compatible|gemini)");
+                        }
+                        llmProvider = args[++i];
+                    }
+                    case "--llm-model" -> {
+                        if (i + 1 >= args.length) {
+                            throw new IllegalArgumentException("--llm-model requires a model id");
+                        }
+                        llmModel = args[++i];
+                    }
+                    case "--llm-endpoint" -> {
+                        if (i + 1 >= args.length) {
+                            throw new IllegalArgumentException("--llm-endpoint requires a URL");
+                        }
+                        llmEndpoint = args[++i];
+                    }
                     default -> throw new IllegalArgumentException(
                             "Unknown argument: " + a);
                 }
             }
             return new Args(help, approve, customerProfilePath,
                     emailThreadPath, email, dbUrl, dbUser, dbPassword,
-                    emailMcp, mcpConfigPath);
+                    emailMcp, mcpConfigPath, llmProvider, llmModel, llmEndpoint);
         }
     }
 }
