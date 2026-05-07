@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/hero.svg" alt="Sales AI — context first, never auto-sends" />
+  <img src="docs/assets/hero.png" alt="Sales AI — 業務人員與 AI agent 協作:讀取客戶 email 並查詢客戶資料庫" width="820" />
 </p>
 
 <p align="center">
