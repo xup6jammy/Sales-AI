@@ -127,9 +127,37 @@ public final class AdvisorWorkflow {
             t.setRiskAssessment(risk);
         }
 
-        // 7. Generate drafts.
-        audit.log("GENERATE_DRAFTS", "tone=" + strategy.tone());
-        List<ReplyDraft> drafts = replyDraft.generate(customer, thread, strategy);
+        // 7. Risk gate — THE INVARIANT.
+        //    The LLM (or any other reply draft adapter) is NEVER invoked when
+        //    the risk level blocks auto-drafting. This is enforced by code
+        //    structure, not convention. See AdvisorWorkflowRiskGateTest.
+        //
+        //    Manifesto: "manager-approval gate 不會消失,即使 autonomy 越來越高"
+        //    — the manager-approval gate doesn't disappear, no matter how much
+        //    autonomy increases. AI handles volume; humans handle nuance.
+        List<ReplyDraft> drafts;
+        if (risk.level().blocksAutoDraft()) {
+            audit.log("DRAFTS_BLOCKED_BY_RISK_GATE",
+                "level=" + risk.level()
+                + " requiresManagerApproval=" + risk.requiresManagerApproval()
+                + " reasons=" + String.join("; ", risk.reasons())
+                + " (LLM not invoked; data did not leave perimeter)");
+            drafts = List.of(
+                new ReplyDraft(
+                    "Safe / Formal",
+                    "[manager approval required]",
+                    "Drafts blocked by risk gate. Reasons: "
+                        + String.join("; ", risk.reasons())
+                        + ". Route to " + customer.accountManager()
+                        + " before any reply leaves the building."),
+                new ReplyDraft(
+                    "Warm / Relationship-Focused",
+                    "[manager approval required]",
+                    "(no draft — see Safe/Formal option for the block reason)"));
+        } else {
+            audit.log("GENERATE_DRAFTS", "tone=" + strategy.tone());
+            drafts = replyDraft.generate(customer, thread, strategy);
+        }
 
         // 8. Recommend follow-ups.
         audit.log("RECOMMEND_FOLLOWUPS", "intent=" + intent);
@@ -139,7 +167,11 @@ public final class AdvisorWorkflow {
         audit.log("EVALUATE_APPROVAL",
                 "requiresManagerApproval=" + risk.requiresManagerApproval());
         boolean approved = approval.isApproved(risk, request);
-        boolean blocked = !approved;
+        // Delivery is blocked when either (a) approval was denied, OR
+        // (b) the risk gate fired — auto-draft is not permitted at this
+        // risk level, so the synthesised placeholder drafts must NOT be
+        // sent without explicit manager handling.
+        boolean blocked = !approved || risk.level().blocksAutoDraft();
 
         // 10. CRM record (for the lookup, NOT for any unsent draft).
         crm.recordInteraction(customer.id(),
