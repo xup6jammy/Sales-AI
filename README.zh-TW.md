@@ -87,9 +87,9 @@ flowchart TD
 
     tools ==> mvp["<b>引擎 — 本 repo</b><br/>Java 21 CLI<br/>JSON 或 JDBC 來源<br/>主控台稽核"]
     tools ==> mcp["<b>SQL MCP server — 本 repo</b><br/>4 個 whitelisted 工具<br/>SQLite / MySQL / Postgres<br/>JSON-RPC over stdio"]
-    tools -.->|Phase 2| email["Gmail MCP<br/>Outlook MCP"]
+    tools ==>|Phase 2 ✅| email["Gmail MCP<br/>Outlook MCP"]
     tools -.->|Phase 3b| crm["CRM MCP<br/>Salesforce / HubSpot<br/>Text2SQL"]
-    tools -.->|Phase 4| llm["Agents-Flex Skill<br/>Claude / Bedrock / 本地 LLM"]
+    tools ==>|Phase 4 ✅| llm["Agents-Flex Skill<br/>Claude / Bedrock / 本地 LLM"]
     tools -.->|Phase 5| approve["Slack 核准 bot"]
     tools -.->|Phase 6| rag["RAG 知識庫"]
 ```
@@ -288,6 +288,25 @@ Audit Summary
 
 > **MVP 中的草稿是英文**，因為樣板 adapter 是決定性的。改用客戶偏好語言（例如 `zh-TW`）來產草稿屬於 Phase 4——當 `TemplateReplyDraftAdapter` 被 LLM 支撐的 Agents-Flex Skill 取代時，請見 [`docs/integration-plan.md`](docs/integration-plan.md)。策略與風險判斷則維持與語言無關，以保持可稽核性。
 
+## 真實整合（Phase 2 + Phase 4）
+
+Mock 模式的 60 秒示範和以前完全一樣可以執行。若要對接真實系統，請使用以下選填 flag：
+
+| Flag | 效果 | 文件 |
+|---|---|---|
+| `--email-mcp gmail\|outlook` | 透過子行程啟動的 MCP server 讀取真實郵件 | docs/integrations/{gmail,outlook}.md |
+| `--mcp-config <path>` | 覆蓋預設的 mcp-config.json 路徑 | — |
+| `--llm anthropic\|openai\|gemini` | 由真實 LLM 撰寫回覆草稿 | docs/integrations/{anthropic,openai,gemini}.md |
+| `--llm openai-compatible --llm-endpoint URL` | **本地 LLM** — 客戶資料不離開你的機房 | docs/integrations/local-llm.md |
+| `--llm-model <id>` | 覆蓋提供商的預設模型 | — |
+
+### 部署說明（誠實版）
+
+- **Java 引擎在執行時期仍然零依賴** — `java.net.http` 內建於 JDK 11+，LLM HTTP 呼叫不需要額外的 JAR。
+- **Phase 2 部署需要 Node.js 或 `uvx`** — Gmail / Outlook MCP server 是以子行程啟動的外部 npm/pip 套件。Java 引擎本身維持零依賴，依賴只在郵件來源這端。
+- **使用雲端 LLM 時，客戶郵件內容會傳送給該提供商**（Anthropic/OpenAI/Google）。對銀行 / 保險 / 製造 / ERP 等監管產業，資料必須留在本地時：請改用 `--llm openai-compatible` 搭配本地模型，詳見 `docs/integrations/local-llm.md`。
+- **風險門檻在程式碼層強制執行**：當 `RiskAssessment.level().blocksAutoDraft()` 為 true 或 `requiresManagerApproval` 為 true 時，LLM **永遠不會被呼叫**。高風險情境下，客戶資料不會離開引擎。此行為由 `AdvisorWorkflowRiskGateTest` 驗證。
+
 ## 60 秒上手
 
 只需要標準 JDK 21，其餘什麼都不用：沒有建置工具、沒有網路、沒有憑證。
@@ -393,10 +412,10 @@ java -Dstdout.encoding=UTF-8 `
 ## 路線圖
 
 - [x] **Phase 1 &mdash; MVP。** Mock adapters、決定性 classifier、主控台稽核。本 repo。
-- [ ] **Phase 2 &mdash; 真實郵件。** 將 `MockEmailThreadAdapter` 換成 Gmail MCP / Outlook MCP，讀取仍然限縮在單一客戶範圍。
+- [x] **Phase 2 &mdash; 真實郵件。** ✅ 透過 `--email-mcp` 將 `MockEmailThreadAdapter` 換成 Gmail MCP / Outlook MCP，讀取仍然限縮在單一客戶範圍。
 - [x] **Phase 3a &mdash; 真實資料庫。** `JdbcCustomerContextAdapter` 加上一個帶 4 個 whitelisted 查詢工具的 SQL MCP server。SQLite 作 demo，MySQL / Postgres schema 也已附上。詳見 [`mcp-server/`](mcp-server/) 與 [`docs/mcp-server.md`](docs/mcp-server.md)。
 - [ ] **Phase 3b &mdash; 生產用 CRM。** 等 Text2SQL 進入範圍時，把同一個 JDBC adapter 與同一組 MCP 工具指向真實 CRM（Salesforce、HubSpot）。
-- [ ] **Phase 4 &mdash; 真實 LLM 草稿。** 將 `TemplateReplyDraftAdapter` 換成呼叫 Claude / Bedrock / 本地 LLM 的 Agents-Flex Skill，並對穩定的前綴啟用 prompt caching。
+- [x] **Phase 4 &mdash; 真實 LLM 草稿。** ✅ 透過 `--llm anthropic|openai|gemini` 或 `--llm openai-compatible` 搭配本地模型替換 `TemplateReplyDraftAdapter`，穩定前綴啟用 prompt caching。
 - [ ] **Phase 5 &mdash; 核准路由。** 將 `ManualApprovalAdapter` 換成 Slack 核准 bot 或票務系統整合。
 - [ ] **Phase 6 &mdash; 知識庫 / RAG。** 在新的 port 後面接上歷史成交／流失劇本的向量資料庫。
 - [ ] **Phase 7 &mdash; Spring Boot 服務。** 將工作流程包進 Spring Boot，對外暴露為 MCP server，供其他 Claude Code skill 呼叫。
