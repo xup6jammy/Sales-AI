@@ -100,6 +100,62 @@ public final class McpClient implements AutoCloseable {
         }
     }
 
+    /**
+     * Calls {@code tools/list} and returns just the tool names. Full schema
+     * isn't needed by the engine since we know each adapter's expected tool
+     * names ahead of time (see EmailMcpToolMapping).
+     */
+    public List<String> listToolNames(long timeoutMs) throws IOException {
+        if (!initialized) throw new IllegalStateException("not initialized");
+        long id = nextId.getAndIncrement();
+        bridge.send(JsonRpc.request(id, "tools/list", Map.of()));
+        JsonRpc.Response r = readResponseFor(id, timeoutMs);
+        if (r.error() != null) {
+            throw new IOException("tools/list error: " + r.error().message());
+        }
+        Map<String, Object> result = MiniJson.asObject(r.result());
+        Object toolsRaw = result.getOrDefault("tools", List.of());
+        List<?> tools = (List<?>) toolsRaw;
+        java.util.List<String> names = new java.util.ArrayList<>();
+        for (Object t : tools) {
+            Map<String, Object> tm = MiniJson.asObject(t);
+            String name = MiniJson.asString(tm.get("name"));
+            if (name != null) names.add(name);
+        }
+        return names;
+    }
+
+    /**
+     * Calls {@code tools/call} and returns the concatenated text content.
+     * MCP tools may return multiple content items; this joins all
+     * {@code type:"text"} items with newlines and ignores other types.
+     */
+    public String callToolText(String name, Map<String, Object> arguments, long timeoutMs)
+            throws IOException {
+        if (!initialized) throw new IllegalStateException("not initialized");
+        long id = nextId.getAndIncrement();
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("name", name);
+        params.put("arguments", arguments == null ? Map.of() : arguments);
+        bridge.send(JsonRpc.request(id, "tools/call", params));
+        JsonRpc.Response r = readResponseFor(id, timeoutMs);
+        if (r.error() != null) {
+            throw new IOException("tools/call(" + name + ") error: " + r.error().message());
+        }
+        Map<String, Object> result = MiniJson.asObject(r.result());
+        Object contentRaw = result.getOrDefault("content", List.of());
+        List<?> content = (List<?>) contentRaw;
+        StringBuilder sb = new StringBuilder();
+        for (Object c : content) {
+            Map<String, Object> cm = MiniJson.asObject(c);
+            if ("text".equals(cm.get("type"))) {
+                if (sb.length() > 0) sb.append('\n');
+                sb.append(MiniJson.asString(cm.get("text")));
+            }
+        }
+        return sb.toString();
+    }
+
     @Override
     public void close() {
         bridge.close();
