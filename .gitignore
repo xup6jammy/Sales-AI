@@ -33,3 +33,7 @@ notes-local/
 *.db-journal
 *.sqlite
 *.sqlite3
+
+# Test runner output
+out-test/
+out/sources.txt
