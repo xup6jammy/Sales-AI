@@ -15,7 +15,7 @@
   <img alt="Status: MVP" src="https://img.shields.io/badge/Status-MVP-3b82f6?style=flat-square" />
   <img alt="No dependencies" src="https://img.shields.io/badge/Dependencies-None-94a3b8?style=flat-square" />
   <img alt="MCP-ready" src="https://img.shields.io/badge/MCP-ready-f59e0b?style=flat-square" />
-  <img alt="Claude Code skill" src="https://img.shields.io/badge/Claude%20Code-skill-8b5cf6?style=flat-square" />
+  <img alt="Claude Skill" src="https://img.shields.io/badge/Claude%20Code-skill-8b5cf6?style=flat-square" />
 </p>
 
 <p align="center"><i>一款 AI 業務副駕駛，能像資深客戶經理那樣讀懂客戶來信——先看脈絡，最後才草擬回覆，絕不會自動寄出。</i></p>
@@ -68,7 +68,7 @@ GitHub 上「Java 寫 AI agent」是稀缺品（Python 範例佔 95% 以上）�
 
 | | 它帶來什麼 | 為何重要 |
 |---|---|---|
-| **Skill 才是 agent 本體** | 面向使用者的 agent 寫在 [`SKILL.md`](skills/sales-ai/SKILL.md)，而不是程式碼裡。Java MVP 只是引擎。 | 引擎可以分階段抽換（Java CLI &rarr; Gmail MCP &rarr; CRM MCP），完全不影響 Claude Code 呼叫它的方式。 |
+| **Skill 才是 agent 本體** | 面向使用者的 agent 寫在 [`SKILL.md`](skills/sales-ai/SKILL.md)，而不是程式碼裡。Java MVP 只是引擎。 | 引擎可以分階段抽換（Java CLI &rarr; Gmail MCP &rarr; CRM MCP），完全不影響你的 LLM host 呼叫它的方式。 |
 | **硬性安全門檻** | 退款／法務／合約／折扣／流失訊號會強制觸發 `REQUIRES_MANAGER_APPROVAL`，並**封鎖草稿**。 | 其他 agent 範例靠模型「自己乖一點」，這個專案則是建置產物中根本沒有 SMTP 程式碼，連意外寄信都做不到。 |
 | **以脈絡為本，而非以提示為本** | 客戶檔案、合約、付款、工單、客戶經理筆記都會在模型讀到郵件**之前**載入。 | 資深客戶經理是在腦中完成這件事，LLM 則需要把這套流程明確寫下來。 |
 | **天生可稽核** | 每一次 port 呼叫都會寫一行稽核紀錄，CLI 會把這些紀錄列在每份報告的最下方。 | 若報告中的判斷看起來不對勁，可以從報告往回追到原始輸入。 |
@@ -338,7 +338,7 @@ CLI 接受少量 flag，全部選填；預設指向預載的 sample。
 
 ## Phase 2 預覽：SQL MCP Server
 
-本 repo 也附了一個可選用的 MCP server，把同一批客戶資料以**經過白名單把關的 SQL 工具**形式暴露給 Claude Code（或其他 MCP 客戶端）直接呼叫。JSON-RPC 2.0 over stdin/stdout、4 個工具，沒有任意 SQL 介面。
+本 repo 也附了一個可選用的 MCP server，把同一批客戶資料以**經過白名單把關的 SQL 工具**形式暴露給任何 MCP 相容 LLM host 直接呼叫。JSON-RPC 2.0 over stdin/stdout、4 個工具，沒有任意 SQL 介面。
 
 ```
 ┌──────────────┐  stdio JSON-RPC  ┌──────────────────────┐  JDBC  ┌──────────┐
@@ -381,7 +381,7 @@ java -Dstdout.encoding=UTF-8 `
      --email wm.chen@lumora-robotics.example
 ```
 
-同一份報告、同一個風險判斷、同樣被封鎖的草稿——這次資料來自真實的 `SELECT` 查詢。要把 MCP server 接到 Claude Code（讓 LLM 直接呼叫工具，而不只是引擎），請見 [`mcp-server/README.md`](mcp-server/README.md)。設計理由——為何走白名單、為何用 stdio、為何要自己出一個 server——請見 [`docs/mcp-server.md`](docs/mcp-server.md)。
+同一份報告、同一個風險判斷、同樣被封鎖的草稿——這次資料來自真實的 `SELECT` 查詢。要把 MCP server 接到你的 MCP host（讓 LLM 直接呼叫工具，而不只是引擎），請見 [`mcp-server/README.md`](mcp-server/README.md)。設計理由——為何走白名單、為何用 stdio、為何要自己出一個 server——請見 [`docs/mcp-server.md`](docs/mcp-server.md)。
 
 ## 為什麼這不是聊天機器人
 
@@ -418,7 +418,7 @@ java -Dstdout.encoding=UTF-8 `
 - [x] **Phase 4 &mdash; 真實 LLM 草稿。** ✅ 透過 `--llm anthropic|openai|gemini` 或 `--llm openai-compatible` 搭配本地模型替換 `TemplateReplyDraftAdapter`，穩定前綴啟用 prompt caching。
 - [ ] **Phase 5 &mdash; 核准路由。** 將 `ManualApprovalAdapter` 換成 Slack 核准 bot 或票務系統整合。
 - [ ] **Phase 6 &mdash; 知識庫 / RAG。** 在新的 port 後面接上歷史成交／流失劇本的向量資料庫。
-- [ ] **Phase 7 &mdash; Spring Boot 服務。** 將工作流程包進 Spring Boot，對外暴露為 MCP server，供其他 Claude Code skill 呼叫。
+- [ ] **Phase 7 &mdash; Spring Boot 服務。** 將工作流程包進 Spring Boot，對外暴露為 MCP server，供其他支援 Skill 格式的 LLM host 呼叫。
 
 每個階段的細節形貌、新引入的安全考量，以及刻意**不**申請的 OAuth 範圍，都寫在 [`docs/integration-plan.md`](docs/integration-plan.md)。
 
@@ -433,15 +433,17 @@ java -Dstdout.encoding=UTF-8 `
 
 我們沒有從上述任何專案取出原始碼、分支或複製內容。每個專案具體採用了什麼、又明確沒有採用什麼，逐一條列在 [`docs/borrowed-patterns.md`](docs/borrowed-patterns.md)。
 
-## 當作 Claude Code skill 使用
+## 當作 Skill 使用（支援任何 MCP host）
 
-agent 定義位於 [`skills/sales-ai/SKILL.md`](skills/sales-ai/SKILL.md)。將 `skills/sales-ai/` 整個資料夾放進你的 Claude Code skills 目錄（或使用專案內的版本），然後可以這樣對 Claude 說：
+agent 定義位於 [`skills/sales-ai/SKILL.md`](skills/sales-ai/SKILL.md)。將 `skills/sales-ai/` 整個資料夾放進你的 MCP host 的 skills 目錄（或使用專案內的版本），然後可以這樣對 LLM 說：
 
 - "幫我看一下王經理那封信怎麼回。"
 - "Take a look at the Lumora thread &mdash; Wei-Ming is asking for a refund."
 - "Customer CUST-1042 just escalated. Walk me through it."
 
-Claude 會遵循 Skill 中的十一步工作流程，把預載的 Java CLI 當作工具層呼叫，並呈現報告。當風險判斷為 `REQUIRES_MANAGER_APPROVAL` 時，Claude 會明確告知草稿已封鎖，並停下來等你顯式給予核准。
+LLM host 會遵循 Skill 中的十一步工作流程，把預載的 Java CLI 當作工具層呼叫，並呈現報告。當風險判斷為 `REQUIRES_MANAGER_APPROVAL` 時，它會明確告知草稿已封鎖，並停下來等你顯式給予核准。
+
+> **本專案以 [Claude Code](https://claude.ai/code) 作為參考 MCP host 進行測試。任何能讀取 `SKILL.md` 的 MCP 相容 LLM agent runtime 都應該能用。**
 
 ## 文件
 
@@ -452,7 +454,7 @@ Claude 會遵循 Skill 中的十一步工作流程，把預載的 Java CLI 當�
 | [`docs/integration-plan.md`](docs/integration-plan.md) | 朝向 MCP / Agents-Flex / Spring Boot 的逐階段遷移路線；會與不會申請的 OAuth 範圍。 |
 | [`docs/borrowed-patterns.md`](docs/borrowed-patterns.md) | 逐專案拆解採用了哪些模式，又明確沒有複製哪些原始碼。 |
 | [`docs/mcp-server.md`](docs/mcp-server.md) | SQL MCP server 的設計理由：為何走白名單、為何用 stdio、為何自己出一個。 |
-| [`mcp-server/README.md`](mcp-server/README.md) | 如何編譯、種資料、把 MCP server 接到 Claude Code。 |
+| [`mcp-server/README.md`](mcp-server/README.md) | 如何編譯、種資料、把 MCP server 接到你的 MCP host。 |
 | [`samples/advisor-output.md`](samples/advisor-output.md) | 兩種執行（預設 + `--approve`）的逐字輸出。 |
 | [`skills/sales-ai/SKILL.md`](skills/sales-ai/SKILL.md) | agent 定義，也是真正的產品。 |
 

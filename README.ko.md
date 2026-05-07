@@ -15,7 +15,7 @@
   <img alt="Status: MVP" src="https://img.shields.io/badge/Status-MVP-3b82f6?style=flat-square" />
   <img alt="No dependencies" src="https://img.shields.io/badge/Dependencies-None-94a3b8?style=flat-square" />
   <img alt="MCP-ready" src="https://img.shields.io/badge/MCP-ready-f59e0b?style=flat-square" />
-  <img alt="Claude Code skill" src="https://img.shields.io/badge/Claude%20Code-skill-8b5cf6?style=flat-square" />
+  <img alt="Claude Skill" src="https://img.shields.io/badge/Claude%20Code-skill-8b5cf6?style=flat-square" />
 </p>
 
 <p align="center"><i>시니어 어카운트 매니저처럼 고객 이메일을 읽어 내는 AI 세일즈 코파일럿입니다&mdash;&mdash;컨텍스트가 먼저, 드래프트는 마지막, 전송 버튼은 절대 누르지 않습니다.</i></p>
@@ -68,7 +68,7 @@ GitHub에서 "Java로 작성된 AI 에이전트"는 희귀 카테고리입니다
 
 | | 무엇을 제공하는가 | 왜 중요한가 |
 |---|---|---|
-| **Skill 자체가 에이전트** | 사용자 대면 에이전트는 코드가 아니라 [`SKILL.md`](skills/sales-ai/SKILL.md) 안에 있습니다. Java MVP는 단지 엔진입니다. | 엔진을 단계별로 교체(Java CLI &rarr; Gmail MCP &rarr; CRM MCP)하더라도 Claude Code가 호출하는 방식은 바뀌지 않습니다. |
+| **Skill 자체가 에이전트** | 사용자 대면 에이전트는 코드가 아니라 [`SKILL.md`](skills/sales-ai/SKILL.md) 안에 있습니다. Java MVP는 단지 엔진입니다. | 엔진을 단계별로 교체(Java CLI &rarr; Gmail MCP &rarr; CRM MCP)하더라도 사용 중인 LLM 호스트의 호출 방식은 바뀌지 않습니다. |
 | **하드한 안전 게이트** | 환불 / 법무 / 계약 / 할인 / 이탈 신호는 `REQUIRES_MANAGER_APPROVAL`을 강제하고 **드래프트를 차단**합니다. | 다른 에이전트 데모는 모델이 "얌전히 굴기"를 기대하지만, 본 프로젝트의 빌드 산출물에는 SMTP 코드가 아예 없습니다. 사고로도 메일을 보낼 수 없습니다. |
 | **프롬프트 우선이 아닌 컨텍스트 우선** | 고객 프로파일, 계약, 결제, 티켓, AM 메모는 모델이 이메일을 보기 **전에** 적재됩니다. | 시니어 AM은 이를 머릿속에서 합니다. LLM에게는 명시적으로 적어 주어야 합니다. |
 | **구조적으로 감사 가능** | 모든 포트 호출은 한 줄의 감사 로그를 남기고, CLI는 그 로그를 모든 리포트 하단에 출력합니다. | 결정이 어색해 보인다면 리포트에서 입력으로 거꾸로 따라 읽으면 됩니다. |
@@ -338,7 +338,7 @@ CLI는 소수의 플래그만 받습니다. 모두 선택 사항이며, 기본�
 
 ## Phase 2 미리보기: SQL MCP Server
 
-이 리포지토리에는 동일한 고객 데이터를 **whitelisted SQL 도구**로 Claude Code(또는 임의의 MCP 클라이언트)가 직접 호출할 수 있도록 노출하는, 선택적인 MCP server도 포함되어 있습니다. JSON-RPC 2.0 over stdin/stdout, 4개 도구, 일반 SQL 표면 없음.
+이 리포지토리에는 동일한 고객 데이터를 **whitelisted SQL 도구**로 임의의 MCP 호환 LLM 호스트가 직접 호출할 수 있도록 노출하는, 선택적인 MCP server도 포함되어 있습니다. JSON-RPC 2.0 over stdin/stdout, 4개 도구, 일반 SQL 표면 없음.
 
 ```
 ┌──────────────┐  stdio JSON-RPC  ┌──────────────────────┐  JDBC  ┌──────────┐
@@ -381,7 +381,7 @@ java -Dstdout.encoding=UTF-8 `
      --email wm.chen@lumora-robotics.example
 ```
 
-같은 리포트, 같은 리스크 결정, 같은 차단된 드래프트 — 이번에는 실제 `SELECT` 쿼리에서 나옵니다. MCP server를 Claude Code 자체에 연결해 LLM이 엔진이 아닌 도구를 직접 호출하게 하려면 [`mcp-server/README.md`](mcp-server/README.md)를 참고하세요. 설계 이유(왜 화이트리스트, 왜 stdio, 일반 DB MCP가 있는데 왜 자체 서버를 출시하는지)는 [`docs/mcp-server.md`](docs/mcp-server.md)에 있습니다.
+같은 리포트, 같은 리스크 결정, 같은 차단된 드래프트 — 이번에는 실제 `SELECT` 쿼리에서 나옵니다. MCP server를 사용 중인 MCP 호스트에 연결해 LLM이 엔진이 아닌 도구를 직접 호출하게 하려면 [`mcp-server/README.md`](mcp-server/README.md)를 참고하세요. 설계 이유(왜 화이트리스트, 왜 stdio, 일반 DB MCP가 있는데 왜 자체 서버를 출시하는지)는 [`docs/mcp-server.md`](docs/mcp-server.md)에 있습니다.
 
 ## 이것이 챗봇이 아닌 이유
 
@@ -418,7 +418,7 @@ java -Dstdout.encoding=UTF-8 `
 - [x] **Phase 4 &mdash; 실제 LLM 드래프트.** ✅ `--llm anthropic|openai|gemini` 또는 `--llm openai-compatible`과 로컬 모델로 `TemplateReplyDraftAdapter`를 교체하고, 안정적인 프리앰블에 프롬프트 캐시를 적용.
 - [ ] **Phase 5 &mdash; 승인 라우팅.** `ManualApprovalAdapter`를 Slack 승인 봇 또는 티켓팅 시스템 연동으로 교체.
 - [ ] **Phase 6 &mdash; 지식 베이스 / RAG.** 과거 수주 / 실주 플레이북의 벡터 스토어를 새 포트 뒤에 연결.
-- [ ] **Phase 7 &mdash; Spring Boot 서비스.** 워크플로를 Spring Boot로 감싸, 다른 Claude Code skill이 호출할 수 있는 MCP 서버로 노출.
+- [ ] **Phase 7 &mdash; Spring Boot 서비스.** 워크플로를 Spring Boot로 감싸, Skill 형식을 지원하는 다른 LLM 호스트가 호출할 수 있는 MCP 서버로 노출.
 
 각 단계의 구체적 모양, 새로 도입되는 안전 고려 사항, 그리고 의도적으로 **요청하지 않는** OAuth 스코프는 [`docs/integration-plan.md`](docs/integration-plan.md)에 정리되어 있습니다.
 
@@ -433,16 +433,18 @@ java -Dstdout.encoding=UTF-8 `
 
 위 프로젝트들로부터 소스 코드를 vendor하거나 포크하거나 복사한 적이 없습니다. 프로젝트별로 무엇을 채택하고 무엇을 명시적으로 채택하지 않았는지의 상세 내역은 [`docs/borrowed-patterns.md`](docs/borrowed-patterns.md)에 있습니다.
 
-## Claude Code skill로 사용하기
+## Skill로 사용하기 (모든 MCP 호스트 지원)
 
-에이전트 정의는 [`skills/sales-ai/SKILL.md`](skills/sales-ai/SKILL.md)에 있습니다. `skills/sales-ai/` 폴더를 Claude Code skills 디렉터리에 그대로 넣거나(또는 프로젝트 로컬 사본을 사용), Claude에게 다음과 같이 요청해 보세요.
+에이전트 정의는 [`skills/sales-ai/SKILL.md`](skills/sales-ai/SKILL.md)에 있습니다. `skills/sales-ai/` 폴더를 사용 중인 MCP 호스트의 skills 디렉터리에 그대로 넣거나(또는 프로젝트 로컬 사본을 사용), LLM에게 다음과 같이 요청해 보세요.
 
 - "幫我看一下王經理那封信怎麼回。"
 - "Take a look at the Lumora thread &mdash; Wei-Ming is asking for a refund."
 - "Customer CUST-1042 just escalated. Walk me through it."
 - "Lumora 스레드 좀 봐 줘&mdash;Wei-Ming 씨가 환불을 요구하고 있어."
 
-Claude는 Skill의 11단계 워크플로를 따라가며, 툴 레이어로 번들된 Java CLI를 호출하고, 리포트를 표면에 드러냅니다. 리스크 결정이 `REQUIRES_MANAGER_APPROVAL`이면 Claude는 드래프트가 차단되어 있음을 알리고, 명시적 승인이 떨어질 때까지 멈춥니다.
+LLM 호스트는 Skill의 11단계 워크플로를 따라가며, 툴 레이어로 번들된 Java CLI를 호출하고, 리포트를 표면에 드러냅니다. 리스크 결정이 `REQUIRES_MANAGER_APPROVAL`이면 드래프트가 차단되어 있음을 알리고, 명시적 승인이 떨어질 때까지 멈춥니다.
+
+> **참조 MCP 호스트로 [Claude Code](https://claude.ai/code)를 사용해 테스트되었습니다. `SKILL.md`를 읽는 모든 MCP 호환 LLM 에이전트 런타임에서 동작합니다.**
 
 ## 문서
 
@@ -453,7 +455,7 @@ Claude는 Skill의 11단계 워크플로를 따라가며, 툴 레이어로 번�
 | [`docs/integration-plan.md`](docs/integration-plan.md) | MCP / Agents-Flex / Spring Boot로 향하는 단계별 마이그레이션. 요청할 OAuth 스코프와 요청하지 않을 스코프. |
 | [`docs/borrowed-patterns.md`](docs/borrowed-patterns.md) | 참고 프로젝트별로 채택한 패턴과 명시적으로 복사하지 않은 소스 코드의 분류. |
 | [`docs/mcp-server.md`](docs/mcp-server.md) | SQL MCP server 설계 이유: 왜 화이트리스트, 왜 stdio, 왜 자체 서버를 출시하는지. |
-| [`mcp-server/README.md`](mcp-server/README.md) | MCP server의 컴파일, 시드 투입, Claude Code 연결 절차. |
+| [`mcp-server/README.md`](mcp-server/README.md) | MCP server의 컴파일, 시드 투입, MCP 호스트 연결 절차. |
 | [`samples/advisor-output.md`](samples/advisor-output.md) | 기본 실행과 `--approve` 실행의 출력을 그대로 수록. |
 | [`skills/sales-ai/SKILL.md`](skills/sales-ai/SKILL.md) | 에이전트 정의. 사실상 본 프로덕트. |
 

@@ -64,7 +64,7 @@ PowerShell uses `;` instead of `:` between classpath entries. Same on Windows ot
 
 This applies `mcp-server/schema/sqlite.sql` and inserts `mcp-server/samples/seed.sql` (the same Lumora Robotics scenario the engine ships with) into `mcp-server/demo.db`.
 
-### 4. Wire into Claude Code
+### 4. Wire into your MCP host
 
 Add an entry to your `.claude/mcp-config.json` (or the equivalent for your platform):
 
@@ -86,9 +86,9 @@ Add an entry to your `.claude/mcp-config.json` (or the equivalent for your platf
 
 Use `:` instead of `;` on macOS/Linux. The `cwd` for the spawned process should be the repository root.
 
-Restart Claude Code. The four tools above appear under the `sales-advisor` MCP server.
+Restart your MCP host. The four tools above appear under the `sales-advisor` MCP server.
 
-## Verifying without Claude Code
+## Verifying without an MCP host
 
 You can drive the server by hand to sanity-check it. Pipe newline-delimited JSON-RPC requests on stdin:
 
@@ -120,7 +120,7 @@ java -cp "mcp-server/lib/mysql-connector-j-8.4.0.jar:mcp-server/out" \
      --user sales_app --password '...'
 ```
 
-4. Update the Claude Code MCP config to point `--db` at the same JDBC URL.
+4. Update your MCP host's MCP config to point `--db` at the same JDBC URL.
 
 The MCP server detects the dialect from the URL prefix (`jdbc:sqlite:` / `jdbc:mysql:` / `jdbc:postgresql:`) and uses `?`-bound parameters everywhere, so the same tool code works across all three.
 
@@ -173,4 +173,4 @@ Resist the urge to add a generic `runSql(query)` tool. The whole point of this d
 - **`No suitable driver found for jdbc:sqlite:...`** — the driver jar is missing or the wrong version. Use SQLite-JDBC 3.42.0.1 (3.43+ needs SLF4J).
 - **`NoClassDefFoundError: org/slf4j/LoggerFactory`** — you have SQLite-JDBC ≥ 3.43. Either downgrade to 3.42.0.1 or also drop `slf4j-api` and `slf4j-nop` jars in `lib/`.
 - **`SQLITE_ERROR ... near "out": syntax error` from `SeedData`** — make sure the schema/seed paths point at the actual `.sql` files, not a directory.
-- **Claude Code says "MCP server failed to start"** — run the `java -cp ... SalesMcpServer --db ...` command in a terminal first; the stderr diagnostics will tell you why.
+- **If your MCP host says "MCP server failed to start"** — run the `java -cp ... SalesMcpServer --db ...` command in a terminal first; the stderr diagnostics will tell you why.

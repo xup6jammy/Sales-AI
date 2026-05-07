@@ -15,7 +15,7 @@
   <img alt="Status: MVP" src="https://img.shields.io/badge/Status-MVP-3b82f6?style=flat-square" />
   <img alt="No dependencies" src="https://img.shields.io/badge/Dependencies-None-94a3b8?style=flat-square" />
   <img alt="MCP-ready" src="https://img.shields.io/badge/MCP-ready-f59e0b?style=flat-square" />
-  <img alt="Claude Code skill" src="https://img.shields.io/badge/Claude%20Code-skill-8b5cf6?style=flat-square" />
+  <img alt="Claude Skill" src="https://img.shields.io/badge/Claude%20Code-skill-8b5cf6?style=flat-square" />
 </p>
 
 <p align="center"><i>An AI sales copilot that reads your customer's email like a senior account manager would &mdash; context first, draft last, never hits send.</i></p>
@@ -68,7 +68,7 @@ Not because Java is trendy. Because this project's destination *is* Java's home 
 
 | | What it brings | Why it matters |
 |---|---|---|
-| **Skill is the agent** | The user-facing agent lives in [`SKILL.md`](skills/sales-ai/SKILL.md), not in code. The Java MVP is just the engine. | Replace the engine (Java CLI &rarr; Gmail MCP &rarr; CRM MCP) phase by phase without changing how Claude Code calls it. |
+| **Skill is the agent** | The user-facing agent lives in [`SKILL.md`](skills/sales-ai/SKILL.md), not in code. The Java MVP is just the engine. | Replace the engine (Java CLI &rarr; Gmail MCP &rarr; CRM MCP) phase by phase without changing how your LLM host calls it. |
 | **Hard safety gate** | Refund / legal / contract / discount / churn signals force `REQUIRES_MANAGER_APPROVAL` and **block the drafts**. | Other agent demos rely on the model "behaving"; this one literally has no SMTP code in the build. It cannot send mail even by accident. |
 | **Context-first, not prompt-first** | Customer profile, contract, payments, tickets, AM notes load **before** the model sees the email. | A senior AM does this in their head. LLMs need it written down. |
 | **Auditable by construction** | Every port call writes one audit line; the CLI prints them at the bottom of every report. | If a decision looks wrong, read backwards from the report to the inputs. |
@@ -339,7 +339,7 @@ The CLI takes a small set of flags. All are optional; the defaults point at the 
 
 ## Phase 2 preview: SQL MCP Server
 
-The repo also ships an opt-in MCP server that exposes the same customer data as **whitelisted SQL-backed tools** for Claude Code (or any MCP client) to call directly. JSON-RPC 2.0 over stdin/stdout, four tools, no generic SQL surface.
+The repo also ships an opt-in MCP server that exposes the same customer data as **whitelisted SQL-backed tools** for any MCP-compatible LLM host to call directly. JSON-RPC 2.0 over stdin/stdout, four tools, no generic SQL surface.
 
 ```
 ┌──────────────┐  stdio JSON-RPC  ┌─────────────────────┐  JDBC  ┌──────────┐
@@ -382,7 +382,7 @@ java -Dstdout.encoding=UTF-8 `
      --email wm.chen@lumora-robotics.example
 ```
 
-Same report, same risk decision, same blocked drafts &mdash; this time sourced from real `SELECT` statements. To wire the MCP server into Claude Code itself (so the LLM can call the tools, not just the engine), see [`mcp-server/README.md`](mcp-server/README.md). For the design rationale &mdash; why whitelisting, why stdio, why ship our own server when generic DB MCPs exist &mdash; see [`docs/mcp-server.md`](docs/mcp-server.md).
+Same report, same risk decision, same blocked drafts &mdash; this time sourced from real `SELECT` statements. To wire the MCP server into your MCP-compatible LLM host (so the LLM can call the tools, not just the engine), see [`mcp-server/README.md`](mcp-server/README.md). For the design rationale &mdash; why whitelisting, why stdio, why ship our own server when generic DB MCPs exist &mdash; see [`docs/mcp-server.md`](docs/mcp-server.md).
 
 ## Why this is not a chatbot
 
@@ -419,7 +419,7 @@ Each phase of [`docs/integration-plan.md`](docs/integration-plan.md) replaces on
 - [x] **Phase 4 &mdash; Real LLM drafts.** ✅ Replace `TemplateReplyDraftAdapter` with `--llm anthropic|openai|gemini` or `--llm openai-compatible` for a local model. Prompt caching on the stable preamble.
 - [ ] **Phase 5 &mdash; Approval routing.** Replace `ManualApprovalAdapter` with a Slack approval bot or a ticketing-system integration.
 - [ ] **Phase 6 &mdash; Knowledge base / RAG.** Plug a vector store of past won / lost playbooks behind a new port.
-- [ ] **Phase 7 &mdash; Spring Boot service.** Wrap the workflow in Spring Boot, expose it as an MCP server other Claude Code skills can call.
+- [ ] **Phase 7 &mdash; Spring Boot service.** Wrap the workflow in Spring Boot, expose it as an MCP server other Skill-format LLM hosts can call.
 
 The detailed shape of each phase, the new safety considerations it introduces, and the OAuth scopes we deliberately do NOT request are in [`docs/integration-plan.md`](docs/integration-plan.md).
 
@@ -434,15 +434,17 @@ The project owes a clear conceptual debt to several open-source efforts. **None 
 
 We did not vendor, fork, or copy source code from any of these projects. The full per-project breakdown of what was adopted and what was explicitly not is in [`docs/borrowed-patterns.md`](docs/borrowed-patterns.md).
 
-## Use it as a Claude Code skill
+## Use it as a Skill (with any MCP host)
 
-The agent definition lives in [`skills/sales-ai/SKILL.md`](skills/sales-ai/SKILL.md). Drop the `skills/sales-ai/` folder into your Claude Code skills directory (or use the project-local one), then ask Claude things like:
+The agent definition lives in [`skills/sales-ai/SKILL.md`](skills/sales-ai/SKILL.md). Drop the `skills/sales-ai/` folder into your MCP host's skills directory (or use the project-local one), then ask your LLM things like:
 
 - "幫我看一下王經理那封信怎麼回。"
 - "Take a look at the Lumora thread &mdash; Wei-Ming is asking for a refund."
 - "Customer CUST-1042 just escalated. Walk me through it."
 
-Claude will follow the eleven-step workflow in the Skill, call the bundled Java CLI as the tool layer, and surface the report. When the risk decision is `REQUIRES_MANAGER_APPROVAL`, Claude will tell you the drafts are blocked and stop until you grant approval explicitly.
+Your LLM host will follow the eleven-step workflow in the Skill, call the bundled Java CLI as the tool layer, and surface the report. When the risk decision is `REQUIRES_MANAGER_APPROVAL`, it will tell you the drafts are blocked and stop until you grant approval explicitly.
+
+> **Tested with [Claude Code](https://claude.ai/code) as the reference MCP host. Any MCP-compatible LLM agent runtime that reads `SKILL.md` should work.**
 
 ## Documentation
 
@@ -453,7 +455,7 @@ Claude will follow the eleven-step workflow in the Skill, call the bundled Java 
 | [`docs/integration-plan.md`](docs/integration-plan.md) | Phase-by-phase migration toward MCP / Agents-Flex / Spring Boot. OAuth scopes we will and will not request. |
 | [`docs/borrowed-patterns.md`](docs/borrowed-patterns.md) | Per-reference breakdown of patterns adopted and source code explicitly not copied. |
 | [`docs/mcp-server.md`](docs/mcp-server.md) | Design rationale for the SQL MCP server: why whitelist tools, why stdio, why ship our own. |
-| [`mcp-server/README.md`](mcp-server/README.md) | How to compile, seed, and wire the MCP server into Claude Code. |
+| [`mcp-server/README.md`](mcp-server/README.md) | How to compile, seed, and wire the MCP server into your MCP host. |
 | [`samples/advisor-output.md`](samples/advisor-output.md) | Both runs (default + `--approve`) verbatim. |
 | [`skills/sales-ai/SKILL.md`](skills/sales-ai/SKILL.md) | The agent definition. The actual product. |
 
