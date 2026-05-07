@@ -87,9 +87,9 @@ flowchart TD
 
     tools ==> mvp["<b>Engine — this repo</b><br/>Java 21 CLI<br/>JSON or JDBC source<br/>console audit"]
     tools ==> mcp["<b>SQL MCP server — this repo</b><br/>4 whitelisted tools<br/>SQLite / MySQL / Postgres<br/>JSON-RPC over stdio"]
-    tools -.->|Phase 2| email["Gmail MCP<br/>Outlook MCP"]
+    tools ==>|Phase 2 ✅| email["Gmail MCP<br/>Outlook MCP"]
     tools -.->|Phase 3b| crm["CRM MCP<br/>Salesforce / HubSpot<br/>Text2SQL"]
-    tools -.->|Phase 4| llm["Agents-Flex Skill<br/>Claude / Bedrock / local LLM"]
+    tools ==>|Phase 4 ✅| llm["Agents-Flex Skill<br/>Claude / Bedrock / local LLM"]
     tools -.->|Phase 5| approve["Slack approval bot"]
     tools -.->|Phase 6| rag["RAG knowledge base"]
 ```
@@ -288,6 +288,26 @@ Re-running with `--approve` does NOT send mail. It writes one extra audit line r
 
 > **Drafts are in English** in the MVP because the template adapter is deterministic. Generating drafts in the customer's preferred language (here `zh-TW`) is part of Phase 4 &mdash; see [`docs/integration-plan.md`](docs/integration-plan.md) &mdash; when `TemplateReplyDraftAdapter` is replaced by an LLM-backed Agents-Flex Skill. The strategy and risk decisions stay language-agnostic so they remain auditable.
 
+## Real integrations (Phase 2 + Phase 4)
+
+The mock-mode 60-second demo still works exactly as before. To run against
+real systems, use these opt-in flags:
+
+| Flag | Effect | Doc |
+|---|---|---|
+| `--email-mcp gmail\|outlook` | Real email via spawned MCP server | docs/integrations/{gmail,outlook}.md |
+| `--mcp-config <path>` | Override default mcp-config.json location | — |
+| `--llm anthropic\|openai\|gemini` | Real LLM-drafted replies | docs/integrations/{anthropic,openai,gemini}.md |
+| `--llm openai-compatible --llm-endpoint URL` | **Local LLM** — keep customer data on your perimeter | docs/integrations/local-llm.md |
+| `--llm-model <id>` | Override provider default model | — |
+
+### Honest deployment notes
+
+- **Java engine remains zero-dep at runtime** — `java.net.http` is built into JDK 11+, so the LLM HTTP calls add no JARs.
+- **Phase 2 deployment requires Node.js or `uvx`** — Gmail/Outlook MCP servers are external npm/pip packages spawned as child processes. The Java engine itself stays zero-dep; the dependency is for the email source.
+- **When using cloud LLM, customer email content is sent to that provider** (Anthropic/OpenAI/Google). For regulated industries (banking, insurance, manufacturing, ERP) where data must stay on-premise: use `--llm openai-compatible` with a local model — see `docs/integrations/local-llm.md`.
+- **Risk gate is enforced in code**: when `RiskAssessment.level().blocksAutoDraft()` is true OR `requiresManagerApproval` is true, the LLM is **never invoked**. Customer data does not leave the engine for high-risk situations. This is verified by `AdvisorWorkflowRiskGateTest`.
+
 ## Run it in 60 seconds
 
 You need a stock JDK 21 and nothing else. No build tool. No network. No credentials.
@@ -393,10 +413,10 @@ Each phase of [`docs/integration-plan.md`](docs/integration-plan.md) replaces on
 ## Roadmap
 
 - [x] **Phase 1 &mdash; MVP.** Mock adapters, deterministic classifiers, console audit. This repo.
-- [ ] **Phase 2 &mdash; Real email.** Replace `MockEmailThreadAdapter` with Gmail MCP / Outlook MCP. Reads remain customer-scoped.
+- [x] **Phase 2 &mdash; Real email.** ✅ Replace `MockEmailThreadAdapter` with Gmail MCP / Outlook MCP via `--email-mcp`. Reads remain customer-scoped.
 - [x] **Phase 3a &mdash; Real database.** `JdbcCustomerContextAdapter` + a SQL MCP server with four whitelisted query tools. SQLite for the demo, MySQL / Postgres schemas committed. See [`mcp-server/`](mcp-server/) and [`docs/mcp-server.md`](docs/mcp-server.md).
 - [ ] **Phase 3b &mdash; Production CRM.** Point the same JDBC adapter and the same MCP tools at a real CRM (Salesforce, HubSpot) once Text2SQL is in scope.
-- [ ] **Phase 4 &mdash; Real LLM drafts.** Replace `TemplateReplyDraftAdapter` with an Agents-Flex Skill calling Claude / Bedrock / a local LLM, with prompt caching on the stable preamble.
+- [x] **Phase 4 &mdash; Real LLM drafts.** ✅ Replace `TemplateReplyDraftAdapter` with `--llm anthropic|openai|gemini` or `--llm openai-compatible` for a local model. Prompt caching on the stable preamble.
 - [ ] **Phase 5 &mdash; Approval routing.** Replace `ManualApprovalAdapter` with a Slack approval bot or a ticketing-system integration.
 - [ ] **Phase 6 &mdash; Knowledge base / RAG.** Plug a vector store of past won / lost playbooks behind a new port.
 - [ ] **Phase 7 &mdash; Spring Boot service.** Wrap the workflow in Spring Boot, expose it as an MCP server other Claude Code skills can call.

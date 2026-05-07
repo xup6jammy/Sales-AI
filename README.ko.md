@@ -87,9 +87,9 @@ flowchart TD
 
     tools ==> mvp["<b>엔진 — 본 리포지토리</b><br/>Java 21 CLI<br/>JSON 또는 JDBC 소스<br/>콘솔 감사"]
     tools ==> mcp["<b>SQL MCP server — 본 리포지토리</b><br/>4개의 whitelisted 도구<br/>SQLite / MySQL / Postgres<br/>JSON-RPC over stdio"]
-    tools -.->|Phase 2| email["Gmail MCP<br/>Outlook MCP"]
+    tools ==>|Phase 2 ✅| email["Gmail MCP<br/>Outlook MCP"]
     tools -.->|Phase 3b| crm["CRM MCP<br/>Salesforce / HubSpot<br/>Text2SQL"]
-    tools -.->|Phase 4| llm["Agents-Flex Skill<br/>Claude / Bedrock / 로컬 LLM"]
+    tools ==>|Phase 4 ✅| llm["Agents-Flex Skill<br/>Claude / Bedrock / 로컬 LLM"]
     tools -.->|Phase 5| approve["Slack 승인 봇"]
     tools -.->|Phase 6| rag["RAG 지식 베이스"]
 ```
@@ -288,6 +288,25 @@ Audit Summary
 
 > **MVP의 드래프트는 영어로 출력됩니다**. 템플릿 어댑터가 결정적이기 때문입니다. 고객의 선호 언어(여기서는 `zh-TW`)로 드래프트를 생성하는 것은 Phase 4의 범위입니다&mdash;&mdash;`TemplateReplyDraftAdapter`가 LLM 기반 Agents-Flex Skill로 교체되는 시점이며, 자세한 내용은 [`docs/integration-plan.md`](docs/integration-plan.md)에 있습니다. 전략과 리스크 결정은 감사 가능성을 유지하기 위해 언어 비의존적으로 둡니다.
 
+## 실제 연동 (Phase 2 + Phase 4)
+
+목 모드의 60초 데모는 기존과 완전히 동일하게 동작합니다. 실제 시스템에 연결하려면 아래의 opt-in 플래그를 사용하세요.
+
+| 플래그 | 효과 | 문서 |
+|---|---|---|
+| `--email-mcp gmail\|outlook` | 자식 프로세스로 실행된 MCP 서버를 통한 실제 이메일 | docs/integrations/{gmail,outlook}.md |
+| `--mcp-config <path>` | 기본 mcp-config.json 위치 재정의 | — |
+| `--llm anthropic\|openai\|gemini` | 실제 LLM이 작성하는 답장 드래프트 | docs/integrations/{anthropic,openai,gemini}.md |
+| `--llm openai-compatible --llm-endpoint URL` | **로컬 LLM** — 고객 데이터를 사내 경계 안에 유지 | docs/integrations/local-llm.md |
+| `--llm-model <id>` | 제공업체 기본 모델 재정의 | — |
+
+### 솔직한 배포 안내
+
+- **Java 엔진은 런타임에서 의존성 제로 유지** — `java.net.http`는 JDK 11+에 기본 내장되어 있으므로, LLM HTTP 호출을 위해 JAR를 추가할 필요가 없습니다.
+- **Phase 2 배포에는 Node.js 또는 `uvx` 필요** — Gmail/Outlook MCP 서버는 자식 프로세스로 실행되는 외부 npm/pip 패키지입니다. Java 엔진 자체는 의존성 제로를 유지하며, 의존성은 이메일 소스 측에만 있습니다.
+- **클라우드 LLM을 사용할 경우, 고객 이메일 내용이 해당 제공업체에 전송됩니다** (Anthropic/OpenAI/Google). 데이터를 사내에 유지해야 하는 규제 산업(은행, 보험, 제조, ERP)에서는 `--llm openai-compatible`과 로컬 모델을 조합해 사용하세요. 자세한 내용은 `docs/integrations/local-llm.md`를 참고하세요.
+- **리스크 게이트는 코드 레벨에서 강제됩니다**: `RiskAssessment.level().blocksAutoDraft()`가 true이거나 `requiresManagerApproval`이 true일 때, LLM은 **절대 호출되지 않습니다**. 고위험 상황에서 고객 데이터는 엔진 밖으로 나가지 않습니다. 이는 `AdvisorWorkflowRiskGateTest`로 검증되어 있습니다.
+
 ## 60초 안에 실행하기
 
 표준 JDK 21 외에는 아무것도 필요하지 않습니다. 빌드 도구도, 네트워크도, 자격증명도 필요 없습니다.
@@ -393,10 +412,10 @@ java -Dstdout.encoding=UTF-8 `
 ## 로드맵
 
 - [x] **Phase 1 &mdash; MVP.** 목 어댑터, 결정적 분류기, 콘솔 감사. 본 리포지토리.
-- [ ] **Phase 2 &mdash; 실제 이메일.** `MockEmailThreadAdapter`를 Gmail MCP / Outlook MCP로 교체. 읽기는 여전히 고객 단위로 한정됩니다.
+- [x] **Phase 2 &mdash; 실제 이메일.** ✅ `--email-mcp`로 `MockEmailThreadAdapter`를 Gmail MCP / Outlook MCP로 교체. 읽기는 여전히 고객 단위로 한정됩니다.
 - [x] **Phase 3a &mdash; 실제 데이터베이스.** `JdbcCustomerContextAdapter`와 4개의 whitelisted 쿼리 도구를 갖춘 SQL MCP server. 데모는 SQLite, MySQL / Postgres 스키마도 동봉. 자세한 내용은 [`mcp-server/`](mcp-server/) 와 [`docs/mcp-server.md`](docs/mcp-server.md).
 - [ ] **Phase 3b &mdash; 프로덕션 CRM.** Text2SQL이 범위에 들어오면 동일한 JDBC 어댑터와 동일한 MCP 도구를 실제 CRM(Salesforce, HubSpot)에 연결.
-- [ ] **Phase 4 &mdash; 실제 LLM 드래프트.** `TemplateReplyDraftAdapter`를 Claude / Bedrock / 로컬 LLM을 호출하는 Agents-Flex Skill로 교체하고, 안정적인 프리앰블에 프롬프트 캐시를 적용.
+- [x] **Phase 4 &mdash; 실제 LLM 드래프트.** ✅ `--llm anthropic|openai|gemini` 또는 `--llm openai-compatible`과 로컬 모델로 `TemplateReplyDraftAdapter`를 교체하고, 안정적인 프리앰블에 프롬프트 캐시를 적용.
 - [ ] **Phase 5 &mdash; 승인 라우팅.** `ManualApprovalAdapter`를 Slack 승인 봇 또는 티켓팅 시스템 연동으로 교체.
 - [ ] **Phase 6 &mdash; 지식 베이스 / RAG.** 과거 수주 / 실주 플레이북의 벡터 스토어를 새 포트 뒤에 연결.
 - [ ] **Phase 7 &mdash; Spring Boot 서비스.** 워크플로를 Spring Boot로 감싸, 다른 Claude Code skill이 호출할 수 있는 MCP 서버로 노출.
