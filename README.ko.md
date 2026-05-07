@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/hero.svg" alt="Sales AI — context first, never auto-sends" />
+  <img src="docs/assets/hero.png" alt="Sales AI — 영업 담당자와 AI 에이전트의 협업: 고객 이메일을 읽고 고객 데이터베이스를 조회" width="820" />
 </p>
 
 <p align="center">
