@@ -1,6 +1,4 @@
-package com.example.salesai.adapters.llm;
-
-import com.example.salesai.audit.AuditEntry;
+package com.example.salesai.audit;
 
 import java.time.Instant;
 
