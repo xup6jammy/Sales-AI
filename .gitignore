@@ -36,3 +36,6 @@ notes-local/
 
 # Test runner output
 out-test/
+
+# Local MCP config (may contain sensitive paths/env); the .example IS committed
+mcp-config.json
