@@ -85,8 +85,8 @@ public final class AnthropicLlmClient implements LlmClient {
         }
         Map<String, Object> usage = MiniJson.asObject(
             root.getOrDefault("usage", Map.of()));
-        int inTokens = ((Number) usage.getOrDefault("input_tokens", 0)).intValue();
-        int outTokens = ((Number) usage.getOrDefault("output_tokens", 0)).intValue();
+        int inTokens = (int) MiniJson.asLong(usage.get("input_tokens"));
+        int outTokens = (int) MiniJson.asLong(usage.get("output_tokens"));
         long latency = System.currentTimeMillis() - start;
         return new LlmResponse(text.toString(), inTokens, outTokens,
             req.model(), latency);
