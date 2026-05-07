@@ -1,15 +1,17 @@
 package com.example.salesai.ports;
 
+import com.example.salesai.audit.AuditEntry;
+
 import java.util.List;
 
-/**
- * Port for emitting audit events. Adapters typically print to stdout
- * AND retain entries so the renderer can show the audit summary.
- */
 public interface AuditLogPort {
 
+    /** Legacy two-string call; kept so existing workflow code compiles. */
     void log(String event, String detail);
 
-    /** Returns the in-memory log of events captured so far. */
+    /** Structured log call; preferred for new callers (Phase 4). */
+    void log(AuditEntry entry);
+
+    /** Returns the in-memory log of events captured so far (formatted strings). */
     List<String> entries();
 }

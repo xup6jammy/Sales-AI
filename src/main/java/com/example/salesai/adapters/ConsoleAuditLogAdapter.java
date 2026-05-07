@@ -48,4 +48,18 @@ public final class ConsoleAuditLogAdapter implements AuditLogPort {
     public List<String> entries() {
         return Collections.unmodifiableList(entries);
     }
+
+    @Override
+    public void log(com.example.salesai.audit.AuditEntry entry) {
+        String formatted = formatEntry(entry);
+        log(formatted, "");
+    }
+
+    private static String formatEntry(com.example.salesai.audit.AuditEntry entry) {
+        if (entry instanceof com.example.salesai.audit.TextAuditEntry t) {
+            return t.event() + " " + t.detail();
+        }
+        // Phase 4 will add LlmCallAuditEntry formatting here in Task 4.9.
+        return entry.toString();
+    }
 }
