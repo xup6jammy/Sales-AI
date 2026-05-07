@@ -2,7 +2,6 @@ package com.example.salesai.mcp.client;
 
 import com.example.salesai.adapters.MiniJson;
 
-import java.util.List;
 import java.util.Map;
 
 public final class JsonRpcTest {
