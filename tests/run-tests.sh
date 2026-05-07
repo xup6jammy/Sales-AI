@@ -21,6 +21,10 @@ to_native() {
 OUT_NATIVE="$(to_native "$OUT")"
 SOURCES_FILE="$OUT/sources.txt"
 
+# Classpath separator: ';' on Windows (cygpath present), ':' on POSIX
+SEP=":"
+command -v cygpath > /dev/null 2>&1 && SEP=";"
+
 # Compile main + test together
 find "$SRC_MAIN" "$SRC_TEST" -name '*.java' | while IFS= read -r f; do
   to_native "$f"
@@ -37,7 +41,7 @@ PASSED=0
 FAILED=0
 for t in $TESTS; do
   echo "==> $t"
-  if java -ea -cp "$OUT_NATIVE;$LIBCP" "$t"; then
+  if java -ea -cp "$OUT_NATIVE${SEP}$LIBCP" "$t"; then
     PASSED=$((PASSED+1))
   else
     FAILED=$((FAILED+1))
