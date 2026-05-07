@@ -81,7 +81,7 @@ Not because Java is trendy. Because this project's destination *is* Java's home 
 
 ```mermaid
 flowchart TD
-    user["Sales user"] -->|"&quot;Help me with this customer&quot;"| cc["Claude Code"]
+    user["Sales user"] -->|"&quot;Help me with this customer&quot;"| cc["LLM"]
     cc -->|reads| skill["<b>SKILL.md</b><br/>11-step workflow<br/>safety rules<br/>output format"]
     skill -->|orchestrates| tools(["Tool layer<br/><i>replaceable per phase</i>"])
 
@@ -323,8 +323,8 @@ The repo also ships an opt-in MCP server that exposes the same customer data as 
 
 ```
 ┌──────────────┐  stdio JSON-RPC  ┌─────────────────────┐  JDBC  ┌──────────┐
-│ Claude Code  │ ───────────────▶ │ SalesMcpServer      │ ─────▶ │ SQLite / │
-│ (the skill)  │ ◀─────────────── │  4 whitelisted tools│        │ MySQL /  │
+│ LLM          │ ───────────────▶ │ SalesMcpServer      │ ─────▶ │ SQLite / │
+│ (MCP client) │ ◀─────────────── │  4 whitelisted tools│        │ MySQL /  │
 └──────────────┘                  └─────────────────────┘        │ Postgres │
                                                                   └──────────┘
 ```

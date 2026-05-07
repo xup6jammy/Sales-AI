@@ -4,8 +4,8 @@ A Model Context Protocol server that exposes the same customer data the Java eng
 
 ```
 ┌──────────────┐  stdio JSON-RPC  ┌─────────────────────┐  JDBC  ┌──────────┐
-│ Claude Code  │ ───────────────▶ │ SalesMcpServer      │ ─────▶ │ SQLite / │
-│ (the skill)  │ ◀─────────────── │  4 whitelisted tools│        │ MySQL /  │
+│ LLM          │ ───────────────▶ │ SalesMcpServer      │ ─────▶ │ SQLite / │
+│ (MCP client) │ ◀─────────────── │  4 whitelisted tools│        │ MySQL /  │
 └──────────────┘                  └─────────────────────┘        │ Postgres │
                                                                   └──────────┘
 ```

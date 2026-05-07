@@ -81,7 +81,7 @@ GitHub 上「Java 寫 AI agent」是稀缺品（Python 範例佔 95% 以上）�
 
 ```mermaid
 flowchart TD
-    user["業務使用者"] -->|"&quot;幫我看一下這位客戶&quot;"| cc["Claude Code"]
+    user["業務使用者"] -->|"&quot;幫我看一下這位客戶&quot;"| cc["大語言模型"]
     cc -->|讀取| skill["<b>SKILL.md</b><br/>11 步工作流程<br/>安全規則<br/>輸出格式"]
     skill -->|編排| tools(["工具層<br/><i>可逐階段替換</i>"])
 
@@ -323,8 +323,8 @@ CLI 接受少量 flag，全部選填；預設指向預載的 sample。
 
 ```
 ┌──────────────┐  stdio JSON-RPC  ┌──────────────────────┐  JDBC  ┌──────────┐
-│ Claude Code  │ ───────────────▶ │ SalesMcpServer       │ ─────▶ │ SQLite / │
-│ (即 skill)   │ ◀─────────────── │  4 個 whitelisted 工具│        │ MySQL /  │
+│ 大語言模型   │ ───────────────▶ │ SalesMcpServer       │ ─────▶ │ SQLite / │
+│ (MCP 客戶端) │ ◀─────────────── │  4 個 whitelisted 工具│        │ MySQL /  │
 └──────────────┘                  └──────────────────────┘        │ Postgres │
                                                                    └──────────┘
 ```
