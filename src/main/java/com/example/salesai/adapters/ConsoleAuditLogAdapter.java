@@ -59,7 +59,14 @@ public final class ConsoleAuditLogAdapter implements AuditLogPort {
         if (entry instanceof com.example.salesai.audit.TextAuditEntry t) {
             return t.event() + " " + t.detail();
         }
-        // Phase 4 will add LlmCallAuditEntry formatting here in Task 4.9.
+        if (entry instanceof com.example.salesai.audit.LlmCallAuditEntry l) {
+            return String.format(
+                "LLM_CALL provider=%s model=%s in_tok=%d out_tok=%d latency=%dms cost=$%.4f key=%s req=%s step=%s",
+                l.provider(), l.model(),
+                l.inputTokens(), l.outputTokens(),
+                l.latencyMs(), l.estimatedCostUsd(),
+                l.apiKeyFingerprint(), l.requestId(), l.workflowStep());
+        }
         return entry.toString();
     }
 }
