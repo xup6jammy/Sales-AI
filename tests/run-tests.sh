@@ -31,7 +31,10 @@ find "$SRC_MAIN" "$SRC_TEST" -name '*.java' | while IFS= read -r f; do
 done > "$SOURCES_FILE"
 
 LIBCP="$(to_native "$ROOT/mcp-server/lib/*")"
-javac -d "$OUT_NATIVE" -cp "$LIBCP" "@$(to_native "$SOURCES_FILE")"
+javac -d "$OUT_NATIVE" -cp "$LIBCP" "@$(to_native "$SOURCES_FILE")" || {
+  echo "javac failed — see above" >&2
+  exit 1
+}
 
 # Discover and run every *Test class
 TESTS=$(find "$SRC_TEST" -name '*Test.java' \
