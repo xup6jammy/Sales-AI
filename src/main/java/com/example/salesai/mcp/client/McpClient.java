@@ -24,7 +24,8 @@ public final class McpClient implements AutoCloseable {
     private final McpServerConfig config;
     private final StdioBridge bridge;
     private final AtomicLong nextId = new AtomicLong(1);
-    private boolean initialized = false;
+    private volatile boolean initialized = false;
+    private final Thread shutdownHook;
 
     public record InitResult(String protocolVersion, String serverName) {}
 
@@ -40,8 +41,8 @@ public final class McpClient implements AutoCloseable {
         this.config = config;
         this.bridge = bridge;
         // JVM shutdown hook: kill the child if the engine exits unexpectedly.
-        Runtime.getRuntime().addShutdownHook(new Thread(this::close,
-                "mcp-shutdown-" + config.name()));
+        this.shutdownHook = new Thread(this::close, "mcp-shutdown-" + config.name());
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
     }
 
     public InitResult initialize(long timeoutMs) throws IOException {
@@ -65,6 +66,11 @@ public final class McpClient implements AutoCloseable {
         Map<String, Object> serverInfo = MiniJson.asObject(
             result.getOrDefault("serverInfo", Map.of()));
         String serverName = MiniJson.asString(serverInfo.getOrDefault("name", ""));
+        if (!PROTOCOL_VERSION.equals(protoVersion)) {
+            System.err.println("[mcp-warn] server " + serverName
+                + " negotiated protocol " + protoVersion
+                + ", client expected " + PROTOCOL_VERSION);
+        }
 
         // Send the required initialized notification.
         bridge.send(JsonRpc.notification("notifications/initialized", Map.of()));
@@ -90,14 +96,18 @@ public final class McpClient implements AutoCloseable {
             JsonRpc.Response r = JsonRpc.parseResponse(line);
             // Skip notifications and unrelated responses.
             if (r.id() == null) continue;
-            long got = ((Number) r.id()).longValue();
-            if (got == expectedId) return r;
+            if (String.valueOf(r.id()).equals(String.valueOf(expectedId))) return r;
         }
     }
 
     @Override
     public void close() {
         bridge.close();
+        try {
+            Runtime.getRuntime().removeShutdownHook(shutdownHook);
+        } catch (IllegalStateException ignored) {
+            // JVM already shutting down
+        }
     }
 
     public boolean isInitialized() { return initialized; }
