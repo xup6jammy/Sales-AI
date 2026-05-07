@@ -31,6 +31,8 @@ import java.nio.file.Paths;
  *   <li>{@code --db <jdbc-url>} — load customer profile from a JDBC database
  *       instead of JSON. See {@code mcp-server/schema/} for table layout.</li>
  *   <li>{@code --db-user <name>} / {@code --db-password <pw>} — credentials.</li>
+ *   <li>{@code --email-mcp <provider>} — use a spawned MCP server (gmail/outlook).</li>
+ *   <li>{@code --mcp-config <path>} — override the default mcp-config.json location.</li>
  * </ul>
  *
  * <p>Exit codes: 0 on success, 2 on argument error, 3 if the customer
@@ -80,8 +82,41 @@ public final class SalesAiCli {
             defaultEmail = mock.defaultEmail().orElse(null);
         }
 
-        MockEmailThreadAdapter threads =
-                new MockEmailThreadAdapter(threadJson);
+        // Email source: --email-mcp picks an external MCP server (gmail/outlook),
+        // otherwise default to the local mock adapter (reads JSON file).
+        com.example.salesai.ports.EmailThreadPort threads;
+        com.example.salesai.mcp.client.McpClient emailMcpClient = null;
+        String emailMcp = parsed.emailMcp();
+        if (emailMcp == null || "mock".equals(emailMcp)) {
+            threads = new MockEmailThreadAdapter(threadJson);
+        } else {
+            java.nio.file.Path cfgPath = parsed.mcpConfigPath() != null
+                    ? parsed.mcpConfigPath()
+                    : Paths.get("mcp-config.json");
+            var cfgs = com.example.salesai.mcp.client.McpConfigLoader.load(cfgPath);
+            var serverCfg = cfgs.get(emailMcp);
+            if (serverCfg == null) {
+                System.err.println("No MCP server named '" + emailMcp
+                        + "' in " + cfgPath
+                        + " (available: " + cfgs.keySet() + ")");
+                System.exit(2);
+                return;
+            }
+            try {
+                emailMcpClient = com.example.salesai.mcp.client.McpClient.spawn(serverCfg);
+                emailMcpClient.initialize(15_000);
+            } catch (java.io.IOException ioe) {
+                System.err.println("Failed to start MCP server '" + emailMcp
+                        + "': " + ioe.getMessage());
+                if (emailMcpClient != null) emailMcpClient.close();
+                System.exit(2);
+                return;
+            }
+            var mapping = com.example.salesai.adapters.email
+                    .EmailMcpToolMapping.fromConfigName(emailMcp);
+            threads = new com.example.salesai.adapters.email
+                    .McpEmailThreadAdapter(emailMcpClient, mapping);
+        }
         RuleBasedRiskPolicyAdapter risk = new RuleBasedRiskPolicyAdapter();
         TemplateReplyDraftAdapter drafts = new TemplateReplyDraftAdapter();
         NoopCrmAdapter crm = new NoopCrmAdapter(audit);
@@ -104,11 +139,13 @@ public final class SalesAiCli {
 
         if (result.customer() == null) {
             System.out.println(new AdvisorReportRenderer().render(result));
+            if (emailMcpClient != null) emailMcpClient.close();
             System.exit(3);
             return;
         }
 
         System.out.println(new AdvisorReportRenderer().render(result));
+        if (emailMcpClient != null) emailMcpClient.close();
     }
 
     private static String usage() {
@@ -129,6 +166,11 @@ public final class SalesAiCli {
                                                Example: jdbc:sqlite:mcp-server/demo.db
                   --db-user <name>             Database user (omit for SQLite).
                   --db-password <pw>           Database password.
+                  --email-mcp <provider>       Use an external MCP server for email
+                                               instead of the mock JSON file.
+                                               Provider name must match an entry in
+                                               mcp-config.json (e.g., 'gmail').
+                  --mcp-config <path>          Override default mcp-config.json location.
                 """;
     }
 
@@ -144,7 +186,9 @@ public final class SalesAiCli {
             String email,
             String dbUrl,
             String dbUser,
-            String dbPassword
+            String dbPassword,
+            String emailMcp,                // NEW: gmail|outlook|null(default mock)
+            Path mcpConfigPath              // NEW
     ) {
         static Args parse(String[] args) {
             boolean help = false;
@@ -155,6 +199,8 @@ public final class SalesAiCli {
             String dbUrl = null;
             String dbUser = null;
             String dbPassword = null;
+            String emailMcp = null;
+            Path mcpConfigPath = null;
             for (int i = 0; i < args.length; i++) {
                 String a = args[i];
                 switch (a) {
@@ -202,12 +248,27 @@ public final class SalesAiCli {
                         }
                         dbPassword = args[++i];
                     }
+                    case "--email-mcp" -> {
+                        if (i + 1 >= args.length) {
+                            throw new IllegalArgumentException(
+                                    "--email-mcp requires a provider name (gmail|outlook|mock)");
+                        }
+                        emailMcp = args[++i];
+                    }
+                    case "--mcp-config" -> {
+                        if (i + 1 >= args.length) {
+                            throw new IllegalArgumentException(
+                                    "--mcp-config requires a path");
+                        }
+                        mcpConfigPath = Paths.get(args[++i]);
+                    }
                     default -> throw new IllegalArgumentException(
                             "Unknown argument: " + a);
                 }
             }
             return new Args(help, approve, customerProfilePath,
-                    emailThreadPath, email, dbUrl, dbUser, dbPassword);
+                    emailThreadPath, email, dbUrl, dbUser, dbPassword,
+                    emailMcp, mcpConfigPath);
         }
     }
 }
