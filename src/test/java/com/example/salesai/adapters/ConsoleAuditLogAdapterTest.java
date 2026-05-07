@@ -27,7 +27,10 @@ public final class ConsoleAuditLogAdapterTest {
         ConsoleAuditLogAdapter adapter = new ConsoleAuditLogAdapter();
         adapter.log(new TextAuditEntry(Instant.now(), "MCP_CONNECT", "gmail"));
         assert adapter.entries().size() == 1;
-        assert adapter.entries().get(0).contains("MCP_CONNECT");
-        assert adapter.entries().get(0).contains("gmail");
+        String line = adapter.entries().get(0);
+        assert line.contains("MCP_CONNECT gmail")
+            : "expected formatted 'MCP_CONNECT gmail', got: " + line;
+        assert !line.contains("TextAuditEntry[")
+            : "raw record toString must not appear in audit output, got: " + line;
     }
 }
