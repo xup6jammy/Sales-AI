@@ -59,6 +59,8 @@ public final class McpEmailThreadAdapter implements EmailThreadPort {
         }
 
         if (text == null || text.isBlank() || "[]".equals(text.trim())) {
+            System.err.println("[mcp-email] no thread found for " + customerEmail
+                + " (server returned " + (text == null ? "null" : "empty") + ")");
             return Optional.empty();
         }
 
@@ -89,7 +91,7 @@ public final class McpEmailThreadAdapter implements EmailThreadPort {
         String from = MiniJson.asString(m.getOrDefault("from", ""));
         List<String> to = toStringList(m.get("to"));
         String sentAt = MiniJson.asString(m.getOrDefault("sent_at", ""));
-        String direction = MiniJson.asString(m.getOrDefault("direction", "INBOUND"));
+        String direction = MiniJson.asString(m.getOrDefault("direction", ""));
         String body = MiniJson.asString(m.getOrDefault("body", ""));
         return new EmailMessage(messageId, from, to, sentAt, direction, body);
     }
