@@ -16,16 +16,16 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * <p>Not thread-safe — one client per workflow run.
  */
-public final class McpClient implements AutoCloseable {
+public class McpClient implements AutoCloseable {
 
     private static final String PROTOCOL_VERSION = "2025-06-18";
     private static final String CLIENT_NAME = "sales-ai-engine";
 
-    private final McpServerConfig config;
-    private final StdioBridge bridge;
+    private McpServerConfig config;
+    private StdioBridge bridge;
     private final AtomicLong nextId = new AtomicLong(1);
     private volatile boolean initialized = false;
-    private final Thread shutdownHook;
+    private Thread shutdownHook;
 
     public record InitResult(String protocolVersion, String serverName) {}
 
@@ -43,6 +43,13 @@ public final class McpClient implements AutoCloseable {
         // JVM shutdown hook: kill the child if the engine exits unexpectedly.
         this.shutdownHook = new Thread(this::close, "mcp-shutdown-" + config.name());
         Runtime.getRuntime().addShutdownHook(shutdownHook);
+    }
+
+    /** Test-only — subclasses can override callToolText/listToolNames without spawning. */
+    protected McpClient() {
+        this.config = new McpServerConfig("test", "noop", java.util.List.of(), java.util.Map.of());
+        this.bridge = null;
+        this.shutdownHook = null;
     }
 
     public InitResult initialize(long timeoutMs) throws IOException {
@@ -158,11 +165,13 @@ public final class McpClient implements AutoCloseable {
 
     @Override
     public void close() {
-        bridge.close();
-        try {
-            Runtime.getRuntime().removeShutdownHook(shutdownHook);
-        } catch (IllegalStateException ignored) {
-            // JVM already shutting down
+        if (bridge != null) bridge.close();
+        if (shutdownHook != null) {
+            try {
+                Runtime.getRuntime().removeShutdownHook(shutdownHook);
+            } catch (IllegalStateException ignored) {
+                // JVM already shutting down
+            }
         }
     }
 
