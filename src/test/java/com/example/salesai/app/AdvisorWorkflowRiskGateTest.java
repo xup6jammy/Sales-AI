@@ -30,8 +30,9 @@ public final class AdvisorWorkflowRiskGateTest {
     void run() {
         testHighRiskShortCircuitsBeforeReplyDraftPort();
         testRequiresManagerApprovalAlsoBlocks();
+        testRequiresManagerApprovalFieldAloneBlocks();
         testLowRiskCallsReplyDraftPort();
-        System.out.println("AdvisorWorkflowRiskGateTest: 3 passed");
+        System.out.println("AdvisorWorkflowRiskGateTest: 4 passed");
     }
 
     /** THE INVARIANT — LLM has no path to HIGH risk customer data. */
@@ -77,8 +78,29 @@ public final class AdvisorWorkflowRiskGateTest {
         };
         AdvisorWorkflow w = workflowWithRisk(RiskLevel.LOW, false, spy);
         w.run(new AdvisorRequest("alice@acme.com", false));
-        assert replyCalls.get() >= 1
-            : "ReplyDraftPort should be called for LOW risk";
+        assert replyCalls.get() == 1
+            : "ReplyDraftPort should be called exactly once for LOW risk; got "
+              + replyCalls.get();
+    }
+
+    /**
+     * MEDIUM risk + requiresManagerApproval=true — the field alone must
+     * still block the LLM. Without this test, Critical #1 would silently
+     * regress.
+     */
+    void testRequiresManagerApprovalFieldAloneBlocks() {
+        AtomicInteger replyCalls = new AtomicInteger(0);
+        ReplyDraftPort spy = (c, t, s) -> {
+            replyCalls.incrementAndGet();
+            return List.of();
+        };
+        // MEDIUM level (does NOT trigger blocksAutoDraft) but requiresManagerApproval=true
+        AdvisorWorkflow w = workflowWithRisk(RiskLevel.MEDIUM, true, spy);
+        w.run(new AdvisorRequest("alice@acme.com", false));
+
+        assert replyCalls.get() == 0
+            : "MEDIUM+requiresManagerApproval=true did NOT block — got "
+              + replyCalls.get() + " LLM calls. SAFETY GAP.";
     }
 
     /** Build a workflow with stubbed dependencies. */
